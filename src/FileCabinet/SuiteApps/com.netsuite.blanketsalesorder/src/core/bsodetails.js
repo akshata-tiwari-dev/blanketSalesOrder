@@ -10,112 +10,186 @@ define(["require", "exports", "N/ui/serverWidget"], function (require, exports, 
     serverWidget_1 = __importDefault(serverWidget_1);
     function onRequest(context) {
         if (context.request.method === 'GET') {
-            const form = serverWidget_1.default.createForm({
-                title: 'Create BSO'
+            const form = serverWidget_1.default.createForm({ title: 'Blanket Purchase Order' });
+            // Primary Information Group
+            form.addFieldGroup({
+                id: 'primaryinfo',
+                label: 'Primary Information'
             });
-            const select = form.addField({
-                id: 'custpage_selectfield',
+            form.addField({
+                id: 'custpage_blanket_po_num',
+                type: serverWidget_1.default.FieldType.TEXT,
+                label: 'Blanket PO #',
+                container: 'primaryinfo'
+            });
+            form.addField({
+                id: 'custpage_vendor',
                 type: serverWidget_1.default.FieldType.SELECT,
-                label: 'Order Type'
-            });
-            select.addSelectOption({
-                value: 'a',
-                text: 'BL'
-            });
-            select.addSelectOption({
-                value: 'b',
-                text: 'AL'
-            });
-            const field = form.addField({
-                id: 'order_no',
-                type: serverWidget_1.default.FieldType.TEXT,
-                label: 'Order Number'
-            });
-            const st = form.addField({
-                id: 'start_',
-                type: serverWidget_1.default.FieldType.DATE,
-                label: 'Start Date'
-            });
-            const end = form.addField({
-                id: 'end_',
-                type: serverWidget_1.default.FieldType.DATE,
-                label: 'End Date'
-            });
-            const status = form.addField({
-                id: 'status_',
+                label: 'Vendor',
+                source: 'vendor',
+                container: 'primaryinfo'
+            }).isMandatory = true;
+            form.addField({
+                id: 'custpage_employee',
                 type: serverWidget_1.default.FieldType.SELECT,
-                label: 'Status'
+                label: 'Employee',
+                source: 'employee',
+                container: 'primaryinfo'
+            }).isMandatory = true;
+            form.addField({
+                id: 'custpage_date',
+                type: serverWidget_1.default.FieldType.DATE,
+                label: 'Date',
+                container: 'primaryinfo'
+            }).defaultValue = new Date().toISOString().split('T')[0]; // Today's Date
+            form.getField({ id: 'custpage_date' }).isMandatory = true;
+            form.addField({
+                id: 'custpage_start_date',
+                type: serverWidget_1.default.FieldType.DATE,
+                label: 'Start Date',
+                container: 'primaryinfo'
+            }).isMandatory = true;
+            form.addField({
+                id: 'custpage_end_date',
+                type: serverWidget_1.default.FieldType.DATE,
+                label: 'End Date',
+                container: 'primaryinfo'
             });
-            status.addSelectOption({
-                value: 'a',
-                text: 'Pending'
+            form.addField({
+                id: 'custpage_max_amt',
+                type: serverWidget_1.default.FieldType.CURRENCY,
+                label: 'Maximum Amount',
+                container: 'primaryinfo'
             });
-            status.addSelectOption({
-                value: 'b',
-                text: 'Completed'
+            form.addField({
+                id: 'custpage_memo',
+                type: serverWidget_1.default.FieldType.TEXTAREA,
+                label: 'Memo',
+                container: 'primaryinfo'
             });
-            field.updateBreakType({
-                breakType: serverWidget_1.default.FieldBreakType.STARTCOL
-            });
-            const sublist = form.addSublist({
-                id: 'sublist_',
-                type: serverWidget_1.default.SublistType.INLINEEDITOR,
-                label: 'Order Details'
-            });
-            sublist.addField({
-                id: 'inven',
-                type: serverWidget_1.default.FieldType.TEXT,
-                label: 'Inventory ID'
-            });
-            sublist.addField({
-                id: 'itname',
-                type: serverWidget_1.default.FieldType.TEXT,
-                label: 'Item Name'
-            });
-            sublist.addField({
-                id: 'qn',
-                type: serverWidget_1.default.FieldType.TEXT,
-                label: 'Quantity'
-            });
-            sublist.addField({
-                id: 'qty',
-                type: serverWidget_1.default.FieldType.TEXT,
-                label: 'QON'
-            });
-            sublist.addField({
-                id: 'boq',
-                type: serverWidget_1.default.FieldType.TEXT,
-                label: 'BOQ'
-            }); /*
-            sublist.addField({
-                id: 'Sc_date',
-                type: serverWidget.FieldType.TEXT,
-                label: 'Scheduled Date'
-            });
-            sublist.addField({
-                id: 'rel_date',
-                type: serverWidget.FieldType.TEXT,
-                label: 'Release Date'
-            });
-    /*
-    
-            sublist.addField({
-                id: 'boq',
-                type: serverWidget.FieldType.TEXT,
-                label: 'Blanket Open Quantity'
-            });
-            sublist.addField({
-                id: 'Sc_date',
-                type: serverWidget.FieldType.DATE,
-                label: 'Scheduled Date'
-            });
-            sublist.addField({
-                id: 'rel_date',
-                type: serverWidget.FieldType.TEXT,
-                label: 'Release Date'
-            });
-    
-    */
+            /* if (context.request.method === 'GET') {
+        
+                const form = serverWidget.createForm({
+                    title: 'Create BSO'
+                });
+                const fieldgroup = form.addFieldGroup({
+                    id : 'fieldgroupid',
+                    label : 'Primary Information'
+                });
+                const select = form.addField({
+                    id: 'custpage_selectfield',
+                    type: serverWidget.FieldType.SELECT,
+                    label: 'Order Type'
+                });
+        
+                select.addSelectOption({
+                    value: 'a',
+                    text: 'BL'
+                });
+        
+                select.addSelectOption({
+                    value: 'b',
+                    text: 'AL'
+                });
+                const field = form.addField({
+                    id: 'order_no',
+                    type: serverWidget.FieldType.TEXT,
+                    label: 'Order Number'
+                });
+                const st = form.addField({
+                    id: 'start_',
+                    type: serverWidget.FieldType.DATE,
+                    label: 'Start Date'
+                });
+                const end = form.addField({
+                    id: 'end_',
+                    type: serverWidget.FieldType.DATE,
+                    label: 'End Date'
+                });
+                const status = form.addField({
+                    id: 'status_',
+                    type: serverWidget.FieldType.SELECT,
+                    label: 'Status'
+                });
+                status.addSelectOption({
+                    value: 'a',
+                    text: 'Pending'
+                });
+                status.addSelectOption({
+                    value: 'b',
+                    text: 'Completed'
+                });
+        
+        
+        
+                field.updateBreakType({
+                    breakType: serverWidget.FieldBreakType.STARTCOL
+                });
+        
+        
+        
+        
+        
+                const sublist = form.addSublist({
+                    id: 'sublist_',
+                    type: serverWidget.SublistType.INLINEEDITOR,
+                    label: 'Order Details'
+                });
+                sublist.addField({
+                    id: 'inven',
+                    type: serverWidget.FieldType.TEXT,
+                    label: 'Inventory ID'
+                });
+                sublist.addField({
+                    id: 'itname',
+                    type: serverWidget.FieldType.TEXT,
+                    label: 'Item Name'
+                });
+        
+        sublist.addField({
+                    id: 'qn',
+                    type: serverWidget.FieldType.TEXT,
+                    label: 'Quantity'
+                });
+                sublist.addField({
+                    id: 'qty',
+                    type: serverWidget.FieldType.TEXT,
+                    label: 'QON'
+                });
+                sublist.addField({
+                    id: 'boq',
+                    type: serverWidget.FieldType.TEXT,
+                    label: 'BOQ'
+                });/*
+                sublist.addField({
+                    id: 'Sc_date',
+                    type: serverWidget.FieldType.TEXT,
+                    label: 'Scheduled Date'
+                });
+                sublist.addField({
+                    id: 'rel_date',
+                    type: serverWidget.FieldType.TEXT,
+                    label: 'Release Date'
+                });
+        /*
+        
+                sublist.addField({
+                    id: 'boq',
+                    type: serverWidget.FieldType.TEXT,
+                    label: 'Blanket Open Quantity'
+                });
+                sublist.addField({
+                    id: 'Sc_date',
+                    type: serverWidget.FieldType.DATE,
+                    label: 'Scheduled Date'
+                });
+                sublist.addField({
+                    id: 'rel_date',
+                    type: serverWidget.FieldType.TEXT,
+                    label: 'Release Date'
+                });
+        
+        */
             form.addSubmitButton({
                 label: 'Submit Button'
             });

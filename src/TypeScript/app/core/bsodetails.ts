@@ -7,8 +7,81 @@ import serverWidget from 'N/ui/serverWidget';
 
 function onRequest(context: { request: { method: string; parameters: { [key: string]: string; }; }; response: { writePage: (form: any) => void; write: (message: string) => void; }; }) {
     if (context.request.method === 'GET') {
+        const form = serverWidget.createForm({ title: 'Blanket Purchase Order' });
+
+// Primary Information Group
+        form.addFieldGroup({
+            id: 'primaryinfo',
+            label: 'Primary Information'
+        });
+
+        form.addField({
+            id: 'custpage_blanket_po_num',
+            type: serverWidget.FieldType.TEXT,
+            label: 'Blanket PO #',
+            container: 'primaryinfo'
+        });
+
+        form.addField({
+            id: 'custpage_vendor',
+            type: serverWidget.FieldType.SELECT,
+            label: 'Vendor',
+            source: 'vendor',
+            container: 'primaryinfo'
+        }).isMandatory = true;
+
+        form.addField({
+            id: 'custpage_employee',
+            type: serverWidget.FieldType.SELECT,
+            label: 'Employee',
+            source: 'employee',
+            container: 'primaryinfo'
+        }).isMandatory = true;
+
+        form.addField({
+            id: 'custpage_date',
+            type: serverWidget.FieldType.DATE,
+            label: 'Date',
+            container: 'primaryinfo'
+        }).defaultValue = new Date().toISOString().split('T')[0]; // Today's Date
+
+        form.getField({ id: 'custpage_date' })!.isMandatory = true;
+
+        form.addField({
+            id: 'custpage_start_date',
+            type: serverWidget.FieldType.DATE,
+            label: 'Start Date',
+            container: 'primaryinfo'
+        }).isMandatory = true;
+
+        form.addField({
+            id: 'custpage_end_date',
+            type: serverWidget.FieldType.DATE,
+            label: 'End Date',
+            container: 'primaryinfo'
+        });
+
+        form.addField({
+            id: 'custpage_max_amt',
+            type: serverWidget.FieldType.CURRENCY,
+            label: 'Maximum Amount',
+            container: 'primaryinfo'
+        });
+
+        form.addField({
+            id: 'custpage_memo',
+            type: serverWidget.FieldType.TEXTAREA,
+            label: 'Memo',
+            container: 'primaryinfo'
+        });
+    /* if (context.request.method === 'GET') {
+
         const form = serverWidget.createForm({
             title: 'Create BSO'
+        });
+        const fieldgroup = form.addFieldGroup({
+            id : 'fieldgroupid',
+            label : 'Primary Information'
         });
         const select = form.addField({
             id: 'custpage_selectfield',
