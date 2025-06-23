@@ -63,6 +63,7 @@ define(["require", "exports", "N/ui/serverWidget"], function (require, exports, 
         // Auto-populate values if flag present
         if (request.method === 'GET' && request.parameters.autogenerate === 'true') {
             const today = new Date();
+            var need = ;
             for (let i = 0; i < 5; i++) {
                 const nextDate = new Date(today);
                 nextDate.setMonth(today.getMonth() + i);

@@ -9,8 +9,8 @@ import { UserEventContext } from 'N/types';
 export const beforeLoad: EntryPoints.UserEvent.beforeLoad = (context: UserEventContext) => {
     const form = context.form;
     const surl: string = url.resolveScript({
-        scriptId: 'customscriptschhh',
-        deploymentId: 'customdeploy2'
+        scriptId: 'customscript1821',
+        deploymentId: 'customdeploy1'
     });
     form.addButton({
         id: 'custpage_suiteletbutton1',

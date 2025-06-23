@@ -33,12 +33,12 @@ define(["require", "exports", "N/url"], function (require, exports, url) {
     const beforeLoad = (context) => {
         const form = context.form;
         const surl = url.resolveScript({
-            scriptId: 'customscript1821',
-            deploymentId: 'customdeploy1'
+            scriptId: 'customscriptschhh',
+            deploymentId: 'customdeploy2'
         });
         form.addButton({
-            id: 'custpage_suiteletbutton1',
-            label: 'generate schedule',
+            id: 'custpage_suiteletbutton12',
+            label: 'gen sch',
             functionName: `(function() { window.location = "${surl}" })();`
         });
     };
