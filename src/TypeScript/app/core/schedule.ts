@@ -100,7 +100,7 @@ function onRequest(context: { request: { method: string; parameters: { [key: str
         var bb=form.addButton({
             id: 'autoGen',
             label: 'Auto Generate',
-        functionName: 'autoGenerateSchedule()'
+       // functionName: 'autoGenerateSchedule()'
         });
         var save=form.addSubmitButton({
             id: 'save',
@@ -175,18 +175,18 @@ function onRequest(context: { request: { method: string; parameters: { [key: str
 
         context.response.writePage(form);
     } else {
-        const delimiter = /\u0001/;
+        /*const delimiter = /\u0001/;
         const textField = context.request.parameters.custpage_text;
         const dateField = context.request.parameters.custpage_date;
         const currencyField = context.request.parameters.custpage_currencyfield;
         const selectField = context.request.parameters.custpage_selectfield;
-        const sublistData = context.request.parameters.sublistdata.split(delimiter);
+        const sublistData = context.request.parameters.sublistdata.split('-');
         const sublistField1 = sublistData[0];
         const sublistField2 = sublistData[1];
 
         context.response.write('You have entered: ' + textField + ' ' + dateField + ' '
             + currencyField + ' ' + selectField + ' ' + sublistField1 + ' ' + sublistField2);
-    }
+    }*/
 }
 
 export = {

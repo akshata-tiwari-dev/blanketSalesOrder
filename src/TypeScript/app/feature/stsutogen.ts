@@ -5,10 +5,12 @@
 import * as ui from 'N/ui/message';
 import * as currentRecord from 'N/currentRecord';
 import * as format from 'N/format';
+import * as serverWidget from 'N/ui/serverWidget';
 export function pageInit(context: any) {}
 export function autoGenerateSchedule() {
     try {
         var rec = currentRecord.get();
+
         var startDateStr = rec.getValue({ fieldId: 'custpage_start_date' }) as string;
         var endDateStr = rec.getValue({ fieldId: 'custpage_end_date' }) as string;
         var totalQty = parseInt(rec.getValue({ fieldId: 'custpage_quantity' }) as string, 10);

@@ -8,6 +8,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 define(["require", "exports", "N/ui/serverWidget"], function (require, exports, serverWidget_1) {
     "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
     serverWidget_1 = __importDefault(serverWidget_1);
     function onRequest(context) {
         if (context.request.method === 'GET') {
@@ -95,7 +96,7 @@ define(["require", "exports", "N/ui/serverWidget"], function (require, exports, 
             var bb = form.addButton({
                 id: 'autoGen',
                 label: 'Auto Generate',
-                functionName: 'autoGenerateSchedule()'
+                // functionName: 'autoGenerateSchedule()'
             });
             var save = form.addSubmitButton({
                 id: 'save',
@@ -172,20 +173,22 @@ define(["require", "exports", "N/ui/serverWidget"], function (require, exports, 
             context.response.writePage(form);
         }
         else {
-            const delimiter = /\u0001/;
+            /*const delimiter = /\u0001/;
             const textField = context.request.parameters.custpage_text;
             const dateField = context.request.parameters.custpage_date;
             const currencyField = context.request.parameters.custpage_currencyfield;
             const selectField = context.request.parameters.custpage_selectfield;
-            const sublistData = context.request.parameters.sublistdata.split(delimiter);
+            const sublistData = context.request.parameters.sublistdata.split('-');
             const sublistField1 = sublistData[0];
             const sublistField2 = sublistData[1];
+    
             context.response.write('You have entered: ' + textField + ' ' + dateField + ' '
                 + currencyField + ' ' + selectField + ' ' + sublistField1 + ' ' + sublistField2);
+        }*/
         }
+        export = {
+            onRequest: onRequest,
+            //autoGenerateSchedule:autoGenerateSchedule
+        };
     }
-    return {
-        onRequest: onRequest,
-        //autoGenerateSchedule:autoGenerateSchedule
-    };
 });

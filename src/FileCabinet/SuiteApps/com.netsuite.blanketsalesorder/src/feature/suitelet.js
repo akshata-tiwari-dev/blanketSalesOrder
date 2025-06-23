@@ -60,11 +60,11 @@ define(["require", "exports", "N/ui/serverWidget"], function (require, exports, 
             const dateField = context.request.parameters.custpage_date;
             const currencyField = context.request.parameters.custpage_currencyfield;
             const selectField = context.request.parameters.custpage_selectfield;
-            const sublistData = context.request.parameters.sublistdata.split(delimiter);
-            const sublistField1 = sublistData[0];
-            const sublistField2 = sublistData[1];
-            context.response.write('You have entered: ' + textField + ' ' + dateField + ' '
-                + currencyField + ' ' + selectField + ' ' + sublistField1 + ' ' + sublistField2);
+            const rawSublistData = context.request.parameters.sublistdata || '';
+            const sublistData = rawSublistData.split(delimiter);
+            const sublistField1 = sublistData[0] || '';
+            const sublistField2 = sublistData[1] || '';
+            context.response.write('You have entered: ' + textField + ' ' + dateField + ' ' + currencyField + ' ' + selectField + ' ' + sublistField1 + ' ' + sublistField2);
         }
     }
     return {
