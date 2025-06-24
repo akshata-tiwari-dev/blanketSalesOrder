@@ -1,7 +1,8 @@
 /**
- * @NAPIVersion 1.0
+ * @NAPIVersion 2.1
  * @NScriptType ClientScript
  */
+
 import * as ui from 'N/ui/message';
 import * as currentRecord from 'N/currentRecord';
 import * as format from 'N/format';
@@ -9,6 +10,7 @@ import * as serverWidget from 'N/ui/serverWidget';
 export function pageInit(context: any) {}
 export function autoGenerateSchedule() {
     try {
+
         var rec = currentRecord.get();
 
         var startDateStr = rec.getValue({ fieldId: 'custpage_start_date' }) as string;

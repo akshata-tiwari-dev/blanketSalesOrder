@@ -6,6 +6,7 @@
 
 import serverWidget from 'N/ui/serverWidget';
 import { EntryPoints } from 'N/types';
+import * as log from 'N/log';
 function onRequest(context: { request: { method: string; parameters: { [key: string]: string; }; }; response: { writePage: (form: any) => void; write: (message: string) => void; }; }) {
     if (context.request.method === 'GET') {
         const form = serverWidget.createForm({ title: 'Schedule' });
@@ -49,9 +50,12 @@ function onRequest(context: { request: { method: string; parameters: { [key: str
             functionName: 'autoGenerateSchedule'
         });
         // Client Script
-        form.clientScriptModulePath = './stsutogen.js'; // Create separate Client Script file
+        form.clientScriptModulePath = './stsutogen.js';
         context.response.writePage(form);
     } else {
+    log.debug(context.request.method);
+
+        /*
         const delimiter: RegExp = /\u0001/;
         const textField = context.request.parameters.custpage_text;
         const dateField = context.request.parameters.custpage_date;
@@ -62,7 +66,7 @@ function onRequest(context: { request: { method: string; parameters: { [key: str
         const sublistField1 = sublistData[0] || '';
         const sublistField2 = sublistData[1] || '';
         context.response.write('You have entered: ' + textField + ' ' + dateField + ' ' + currencyField + ' ' + selectField + ' ' + sublistField1 + ' ' + sublistField2);
-    }
+    }*/
     }
 }
 

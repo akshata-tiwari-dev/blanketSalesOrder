@@ -3,12 +3,36 @@
  * @NScriptType Suitelet
 
  */
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || function (mod) {
+    if (mod && mod.__esModule) return mod;
+    var result = {};
+    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
+    __setModuleDefault(result, mod);
+    return result;
+};
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
-define(["require", "exports", "N/ui/serverWidget"], function (require, exports, serverWidget_1) {
+define(["require", "exports", "N/ui/serverWidget", "N/log"], function (require, exports, serverWidget_1, log) {
     "use strict";
     serverWidget_1 = __importDefault(serverWidget_1);
+    log = __importStar(log);
     function onRequest(context) {
         if (context.request.method === 'GET') {
             const form = serverWidget_1.default.createForm({ title: 'Schedule' });
@@ -51,11 +75,13 @@ define(["require", "exports", "N/ui/serverWidget"], function (require, exports, 
                 functionName: 'autoGenerateSchedule'
             });
             // Client Script
-            form.clientScriptModulePath = './stsutogen.js'; // Create separate Client Script file
+            form.clientScriptModulePath = './stsutogen.js';
             context.response.writePage(form);
         }
         else {
-            const delimiter = /\u0001/;
+            log.debug(context.request.method);
+            /*
+            const delimiter: RegExp = /\u0001/;
             const textField = context.request.parameters.custpage_text;
             const dateField = context.request.parameters.custpage_date;
             const currencyField = context.request.parameters.custpage_currencyfield;
@@ -65,6 +91,7 @@ define(["require", "exports", "N/ui/serverWidget"], function (require, exports, 
             const sublistField1 = sublistData[0] || '';
             const sublistField2 = sublistData[1] || '';
             context.response.write('You have entered: ' + textField + ' ' + dateField + ' ' + currencyField + ' ' + selectField + ' ' + sublistField1 + ' ' + sublistField2);
+        }*/
         }
     }
     return {
