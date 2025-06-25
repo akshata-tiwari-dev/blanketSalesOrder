@@ -68,7 +68,11 @@ define(["require", "exports", "N/ui/serverWidget", "N/log"], function (require, 
                 type: serverWidget_1.default.FieldType.INTEGER
             });
             // Buttons
-            form.addSubmitButton({ label: 'Save Data' });
+            form.addButton({
+                id: 'custpage_auto_generate1',
+                label: 'Save Data'
+                //functionName: ''
+            });
             form.addButton({
                 id: 'custpage_auto_generate',
                 label: 'Auto Generate',

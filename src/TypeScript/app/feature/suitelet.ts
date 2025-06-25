@@ -43,7 +43,11 @@ function onRequest(context: { request: { method: string; parameters: { [key: str
             type: serverWidget.FieldType.INTEGER
         });
         // Buttons
-        form.addSubmitButton({ label: 'Save Data' });
+        form.addButton({
+            id: 'custpage_auto_generate1',
+            label: 'Save Data'
+            //functionName: ''
+        });
         form.addButton({
             id: 'custpage_auto_generate',
             label: 'Auto Generate',
@@ -53,7 +57,7 @@ function onRequest(context: { request: { method: string; parameters: { [key: str
         form.clientScriptModulePath = './stsutogen.js';
         context.response.writePage(form);
     } else {
-    log.debug(context.request.method);
+        log.debug(context.request.method);
 
         /*
         const delimiter: RegExp = /\u0001/;

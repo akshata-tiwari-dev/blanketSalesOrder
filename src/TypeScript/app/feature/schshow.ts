@@ -51,13 +51,14 @@ export function autoGenerateSchedule() {
             releaseDate.setTime(releaseDate.getTime() + x);
             const qty = i === 0 ? qtyPerMonth + remainder : qtyPerMonth;
             rec.selectNewLine({ sublistId: 'custpage_schedule_sublist' });
+            var id='remach_custpage_schedule_sublist';
             rec.setCurrentSublistValue({
-                sublistId: 'custpage_schedule_sublist',
+                sublistId: 'id',
                 fieldId: 'custpage_release_date',
                 value: releaseDate // YYYY-MM-DD
             });
             rec.setCurrentSublistValue({
-                sublistId: 'custpage_schedule_sublist',
+                sublistId: 'id',
                 fieldId: 'custpage_release_qty',
                 value: qty
             });
