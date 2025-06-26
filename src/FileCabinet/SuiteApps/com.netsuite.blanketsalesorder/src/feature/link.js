@@ -59,8 +59,8 @@ define(["require", "exports"], function (require, exports) {
                 label: 'Edit Schedule',
                 container:tabid
             });*/
-        var field = record.getField({ fieldId: 'custrecord38' });
-        field.defaultValue = html;
+        //var field = record.getField({ fieldId: 'custrecord38' });
+        //field.defaultValue = html;
     };
     exports.beforeLoad = beforeLoad;
 });

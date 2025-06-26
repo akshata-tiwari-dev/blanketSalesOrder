@@ -14,12 +14,12 @@ export const fieldChanged: ClientScript['fieldChanged'] = (context) => {
         sublistId: 'recmachcustrecord_bso_item_sublist_link',
         fieldId: 'custrecord39'
     }) as boolean;
-//flow==fpop->suitelet->stsutogen
+//flow==fpop->suitelet->clientscript
 //alert(isChecked ? 'Yes' : 'No');
         if (isChecked){
 
            nlExtOpenWindow(
-                '/app/site/hosting/scriptlet.nl?script=3130&deploy=1',
+                '/app/site/hosting/scriptlet.nl?script=3422&deploy=1',
                 'EditSchedule',
                 800,
                 600

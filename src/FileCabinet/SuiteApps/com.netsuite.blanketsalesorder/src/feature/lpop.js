@@ -32,21 +32,21 @@ define(["require", "exports", "N/currentRecord"], function (require, exports, cu
     currentRecord = __importStar(currentRecord);
     const fieldChanged = (context) => {
         var record = currentRecord.get();
-        const isChecked = context.currentRecord.getCurrentSublistValue({
+        const itemsl = context.currentRecord.getCurrentSublistValue({
             sublistId: 'recmachcustrecord_bso_item_sublist_link',
-            fieldId: 'custrecord39'
         });
-        //flow==fpop->suitelet->clientscript
+        const sch = itemsl.getCurrentSublistValue({
+            sublistId: 'recmachcustrecord34',
+        });
+        //flow==fpop->suitelet->stsutogen
         //alert(isChecked ? 'Yes' : 'No');
-        if (isChecked) {
-            nlExtOpenWindow('/app/site/hosting/scriptlet.nl?script=3422&deploy=1', 'EditSchedule', 800, 600);
-            // Optionally reset checkbox to false
-            /* context.currentRecord.setValue({
-                 fieldId: 'custrecord39',
-                 value: false
-             });*/
-            //alert("done");
-        }
+        // Optionally reset checkbox to false
+        /* context.currentRecord.setValue({
+             fieldId: 'custrecord39',
+             value: false
+         });*/
+        //alert("done");
     };
     exports.fieldChanged = fieldChanged;
+    ;
 });

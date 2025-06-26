@@ -62,7 +62,7 @@ export const beforeLoad: EntryPoints.UserEvent.beforeLoad = (context: UserEventC
         label: 'Edit Schedule',
         container:tabid
     });*/
-    var field = record.getField({ fieldId: 'custrecord38' });
+    //var field = record.getField({ fieldId: 'custrecord38' });
 
-    field.defaultValue = html;
+    //field.defaultValue = html;
 };

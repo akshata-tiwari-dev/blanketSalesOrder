@@ -1,80 +1,164 @@
 /**
- * @NApiVersion 2.x
+ * @NApiVersion 2.1
  * @NScriptType Suitelet
-
  */
 
 import serverWidget from 'N/ui/serverWidget';
-import { EntryPoints } from 'N/types';
+import * as record from 'N/record';
 import * as log from 'N/log';
-function onRequest(context: { request: { method: string; parameters: { [key: string]: string; }; }; response: { writePage: (form: any) => void; write: (message: string) => void; }; }) {
-    if (context.request.method === 'GET') {
-        const form = serverWidget.createForm({ title: 'Schedule' });
+import { EntryPoints } from 'N/types';
+import * as format from 'N/format';
 
-        const startDateField = form.addField({
+function onRequest(context: EntryPoints.Suitelet.onRequestContext) {
+    const request = context.request;
+    const response = context.response;
+
+    if (request.method === 'GET') {
+        const form = serverWidget.createForm({ title: 'Schedule Generator' });
+
+        form.addField({
             id: 'custpage_start_date',
             label: 'Start Date',
             type: serverWidget.FieldType.DATE
         });
-        const endDateField = form.addField({
+        form.addField({
             id: 'custpage_end_date',
             label: 'End Date',
             type: serverWidget.FieldType.DATE
         });
-        const qtyField = form.addField({
+        form.addField({
             id: 'custpage_quantity',
             label: 'Quantity',
             type: serverWidget.FieldType.INTEGER
         });
-        // Sublist
+
         const sublist = form.addSublist({
             id: 'custpage_schedule_sublist',
-            label: 'Schedule',
+            label: 'Generated Schedule',
             type: serverWidget.SublistType.INLINEEDITOR
         });
+
+       /* sublist.addField({
+            id: 'custpage_item_id',
+            label: 'Item',
+            type: serverWidget.FieldType.SELECT,
+            source: '208'
+        });*/
+
         sublist.addField({
             id: 'custpage_release_date',
             label: 'Release Date',
             type: serverWidget.FieldType.DATE
         });
+        const objRecord = record.load({
+            type: 'customrecord606',
+            id:
+            isDynamic: true
+        });
+
         sublist.addField({
             id: 'custpage_release_qty',
             label: 'Quantity',
             type: serverWidget.FieldType.INTEGER
         });
-        // Buttons
-        form.addButton({
-            id: 'custpage_auto_generate1',
-            label: 'Save Data'
-            //functionName: ''
-        });
+
+        form.addSubmitButton({ label: 'Save Schedule' });
+
         form.addButton({
             id: 'custpage_auto_generate',
             label: 'Auto Generate',
             functionName: 'autoGenerateSchedule'
         });
-        // Client Script
-        form.clientScriptModulePath = './stsutogen.js';
-        context.response.writePage(form);
-    } else {
-        log.debug(context.request.method);
 
-        /*
-        const delimiter: RegExp = /\u0001/;
-        const textField = context.request.parameters.custpage_text;
-        const dateField = context.request.parameters.custpage_date;
-        const currencyField = context.request.parameters.custpage_currencyfield;
-        const selectField = context.request.parameters.custpage_selectfield;
-        const rawSublistData = context.request.parameters.sublistdata || '';
-        const sublistData = rawSublistData.split(delimiter);
-        const sublistField1 = sublistData[0] || '';
-        const sublistField2 = sublistData[1] || '';
-        context.response.write('You have entered: ' + textField + ' ' + dateField + ' ' + currencyField + ' ' + selectField + ' ' + sublistField1 + ' ' + sublistField2);
-    }*/
+        form.clientScriptModulePath = './clientscript.js';
+
+        response.writePage(form);
     }
-}
 
-export = {
-    onRequest: onRequest,
-    //autoGenerateSchedule:autoGenerateSchedule
-};
+    if (request.method === 'POST') {
+
+
+            const key = 'custpage_schedule_sublist';
+            const sublistItem = {
+                custpage_release_date: true,
+                custpage_release_qty: true
+            };
+
+            const lineCount = request.getLineCount({ group: key });
+            const actual: Record<string, any> = {};
+            actual[key] = [];
+
+            let successCount = 0;
+            let failureCount = 0;
+
+            for (let i = 0; i < lineCount; i++) {
+                var id=request.getSublistValue({
+                    group:'ITEMS',
+                    line:i,
+                    name:''
+                });
+                actual[key][i] = {};
+
+                actual[key][i]['custpage_release_date'] = request.getSublistValue({
+                    group: key,
+                    name: 'custpage_release_date',
+                    line: i
+                });
+
+                actual[key][i]['custpage_release_qty'] = request.getSublistValue({
+                    group: key,
+                    name: 'custpage_release_qty',
+                    line: i
+                });
+
+                const releaseDate = actual[key][i]['custpage_release_date'];
+                const releaseQty = actual[key][i]['custpage_release_qty'];
+
+                if (!releaseDate || !releaseQty) {
+                    failureCount++;
+                    continue;
+                }
+
+                try {
+                    const sched = record.create({
+                        type: 'customrecord208',
+                        isDynamic: true
+                    });
+
+                    sched.setValue({
+                        fieldId: 'custrecordstdate',
+                        value: format.parse({
+                            value: releaseDate,
+                            type: format.Type.DATE
+                        })
+                    });
+
+                    sched.setValue({
+                        fieldId: 'custrecordqtyy',
+                        value: parseInt(releaseQty)
+                    });
+                    sched.setValue({
+                        fieldId: 'name',
+                        value: 'Generated Schedule - ' + (i + 1)
+                    });
+
+                    sched.save();
+                    successCount++;
+                } catch (e) {
+                    failureCount++;
+                    log.error({
+                        title: `Error Saving Schedule - Line ${i}`,
+                        details: e
+                    });
+                }
+            }
+
+            response.write(`Schedule creation completed.<br>Success: ${successCount}<br>Failed: ${failureCount}`);
+        }
+
+
+    }
+
+export = { onRequest };
+
+

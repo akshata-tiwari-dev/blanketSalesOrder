@@ -37,7 +37,6 @@ define(["require", "exports", "N/currentRecord"], function (require, exports, cu
             var rec = currentRecord.get();
             var startDateStr = rec.getValue({ fieldId: 'custpage_start_date' });
             var endDateStr = rec.getValue({ fieldId: 'custpage_end_date' });
-            //var itemid = rec.getValue({ fieldId: 'custpage_item_id' }) as string;
             var totalQty = parseInt(rec.getValue({ fieldId: 'custpage_quantity' }), 10);
             if (!startDateStr || !endDateStr || isNaN(totalQty)) {
                 alert('Please fill Start Date, End Date, and Quantity.');
@@ -70,18 +69,14 @@ define(["require", "exports", "N/currentRecord"], function (require, exports, cu
                 releaseDate.setTime(releaseDate.getTime() + x);
                 const qty = i === 0 ? qtyPerMonth + remainder : qtyPerMonth;
                 rec.selectNewLine({ sublistId: 'custpage_schedule_sublist' });
-                /* rec.setCurrentSublistValue({
-                     sublistId: 'custpage_schedule_sublist',
-                     fieldId: 'custpage_item_id',
-                     value:i+1
-                 });*/
+                var id = 'remach_custpage_schedule_sublist';
                 rec.setCurrentSublistValue({
-                    sublistId: 'custpage_schedule_sublist',
+                    sublistId: 'id',
                     fieldId: 'custpage_release_date',
                     value: releaseDate // YYYY-MM-DD
                 });
                 rec.setCurrentSublistValue({
-                    sublistId: 'custpage_schedule_sublist',
+                    sublistId: 'id',
                     fieldId: 'custpage_release_qty',
                     value: qty
                 });
