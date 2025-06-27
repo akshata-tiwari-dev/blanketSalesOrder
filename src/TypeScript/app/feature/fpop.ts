@@ -19,7 +19,7 @@ export const fieldChanged: ClientScript['fieldChanged'] = (context) => {
         if (isChecked){
 
            nlExtOpenWindow(
-                '/app/site/hosting/scriptlet.nl?script=3422&deploy=1',
+                '/app/site/hosting/scriptlet.nl?script=3523&deploy=1',
                 'EditSchedule',
                 800,
                 600

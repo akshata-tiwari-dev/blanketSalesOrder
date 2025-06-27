@@ -22,13 +22,55 @@ export function autoGenerateSchedule() {
             return;
         }
         var startDate = new Date(startDateStr);
+        const lineCount = rec.getLineCount({ sublistId: 'custpage_schedule_sublist' });
+        for (let i = 0; i <lineCount; i++) {
+            //  rec.removeLine({ sublistId: 'custpage_schedule_sublist', line: i, ignoreRecalc: true });
+            var q=rec.getSublistValue({
+                sublistId: 'custpage_schedule_sublist',
+                fieldId: 'custpage_release_date',
+                line:i
+                // value: releaseDate // YYYY-MM-DD
+            });
+            var qtyy=rec.getSublistValue({
+                sublistId: 'custpage_schedule_sublist',
+                fieldId: 'custpage_release_qty',
+                line:i
+                // value: releaseDate // YYYY-MM-DD
+            });
+            startDate= new Date(q);
+            totalQty-=qtyy;
+        };
         var endDate = new Date(endDateStr);
         if (endDate <= startDate) {
             alert('End Date must be after Start Date.');
             return;
         }
-        var monthsDiff = (endDate.getFullYear() - startDate.getFullYear()) * 12 + (endDate.getMonth() - startDate.getMonth()) ;
-        var need=24*3600*30*1000;
+
+        var frequency=rec.getValue({ fieldId: 'custpage_release_freq'});
+        var divison:number;
+        if(frequency=='e'){
+            divison=1;
+        }
+        else if(frequency=='b'){
+            divison=7;
+        }
+        else if(frequency=='c'){
+            divison=15;
+        }
+        else if(frequency=='a'){
+            divison=30;
+        }
+        else if(frequency=='d'){
+            divison=90;
+        }
+        else{
+            divison=365;
+        }
+       //var monthsDiff = (endDate.getFullYear() - startDate.getFullYear()) * 12 + (endDate.getMonth() - startDate.getMonth()) ;
+        var need=24*3600*1000;
+        var TotalDays = (endDate.getTime() - startDate.getTime())/need;
+        //alert(monthsDiff);
+
         // var weekDiff=Math.ceil((endDate.getFullYear() - startDate.getFullYear())/need);
         // alert(monthsDiff);
         /* const lineCount = rec.getLineCount({ sublistId: 'custpage_schedule_sublist' });
@@ -40,17 +82,19 @@ export function autoGenerateSchedule() {
                 // value: releaseDate // YYYY-MM-DD
              });
          }*/
-        var qtyPerMonth = Math.floor(totalQty / monthsDiff);
-        var remainder = totalQty % monthsDiff;
+        var differ= Math.floor(TotalDays/divison);
+        var qtyPerDiv = Math.floor(totalQty /differ);
+        var remainder = totalQty % differ;
 
 
         var releaseDate = new Date(startDate);
+        var rddiff=need*divison;
 
         var x=need;
-        for (var i = 0; i < monthsDiff; i++) {
+        for (var i = 0; i < differ; i++) {
 
-            releaseDate.setTime(releaseDate.getTime() + x);
-            const qty = i === 0 ? qtyPerMonth + remainder : qtyPerMonth;
+            releaseDate.setTime(releaseDate.getTime() + rddiff);
+            const qty = i === 0 ? qtyPerDiv + remainder : qtyPerDiv;
             rec.selectNewLine({ sublistId: 'custpage_schedule_sublist' });
            /* rec.setCurrentSublistValue({
                 sublistId: 'custpage_schedule_sublist',

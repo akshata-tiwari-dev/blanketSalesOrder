@@ -39,7 +39,7 @@ define(["require", "exports", "N/currentRecord"], function (require, exports, cu
         //flow==fpop->suitelet->clientscript
         //alert(isChecked ? 'Yes' : 'No');
         if (isChecked) {
-            nlExtOpenWindow('/app/site/hosting/scriptlet.nl?script=3422&deploy=1', 'EditSchedule', 800, 600);
+            nlExtOpenWindow('/app/site/hosting/scriptlet.nl?script=3523&deploy=1', 'EditSchedule', 800, 600);
             // Optionally reset checkbox to false
             /* context.currentRecord.setValue({
                  fieldId: 'custrecord39',

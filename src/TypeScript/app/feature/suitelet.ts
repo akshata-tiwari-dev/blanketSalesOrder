@@ -50,16 +50,48 @@ function onRequest(context: EntryPoints.Suitelet.onRequestContext) {
             label: 'Release Date',
             type: serverWidget.FieldType.DATE
         });
-        const objRecord = record.load({
+       /* const objRecord = record.load({
             type: 'customrecord606',
             id:
             isDynamic: true
-        });
+        });*/
 
         sublist.addField({
             id: 'custpage_release_qty',
             label: 'Quantity',
             type: serverWidget.FieldType.INTEGER
+        });
+       var f= form.addField({
+            id: 'custpage_release_freq',
+            label: 'RELEASE FREQUENCY',
+            type: serverWidget.FieldType.SELECT
+        });
+        f.addSelectOption({
+            value: 'e',
+            text: 'Daily'
+        });
+
+        f.addSelectOption({
+            value: 'b',
+            text: 'Weekly'
+        });
+        f.addSelectOption({
+            value: 'c',
+            text: 'Bi-Weekly'
+        });
+        f.addSelectOption({
+            value: 'a',
+            text: 'Monthly'
+        });
+
+        f.addSelectOption({
+            value: 'd',
+            text: 'Quaterly'
+        });
+
+        f.addSelectOption({
+            value: 'y',
+            text: 'Yearly'
         });
 
         form.addSubmitButton({ label: 'Save Schedule' });
@@ -92,11 +124,11 @@ function onRequest(context: EntryPoints.Suitelet.onRequestContext) {
             let failureCount = 0;
 
             for (let i = 0; i < lineCount; i++) {
-                var id=request.getSublistValue({
+                /*var id=request.getSublistValue({
                     group:'ITEMS',
                     line:i,
                     name:''
-                });
+                });*/
                 actual[key][i] = {};
 
                 actual[key][i]['custpage_release_date'] = request.getSublistValue({

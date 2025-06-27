@@ -70,14 +70,44 @@ define(["require", "exports", "N/ui/serverWidget", "N/record", "N/log", "N/forma
                 label: 'Release Date',
                 type: serverWidget_1.default.FieldType.DATE
             });
-            const objRecord = record.load({
-                type: 'customrecord606',
-                id: isDynamic, true: 
-            });
+            /* const objRecord = record.load({
+                 type: 'customrecord606',
+                 id:
+                 isDynamic: true
+             });*/
             sublist.addField({
                 id: 'custpage_release_qty',
                 label: 'Quantity',
                 type: serverWidget_1.default.FieldType.INTEGER
+            });
+            var f = form.addField({
+                id: 'custpage_release_freq',
+                label: 'RELEASE FREQUENCY',
+                type: serverWidget_1.default.FieldType.SELECT
+            });
+            f.addSelectOption({
+                value: 'e',
+                text: 'Daily'
+            });
+            f.addSelectOption({
+                value: 'b',
+                text: 'Weekly'
+            });
+            f.addSelectOption({
+                value: 'c',
+                text: 'Bi-Weekly'
+            });
+            f.addSelectOption({
+                value: 'a',
+                text: 'Monthly'
+            });
+            f.addSelectOption({
+                value: 'd',
+                text: 'Quaterly'
+            });
+            f.addSelectOption({
+                value: 'y',
+                text: 'Yearly'
             });
             form.addSubmitButton({ label: 'Save Schedule' });
             form.addButton({
@@ -100,11 +130,11 @@ define(["require", "exports", "N/ui/serverWidget", "N/record", "N/log", "N/forma
             let successCount = 0;
             let failureCount = 0;
             for (let i = 0; i < lineCount; i++) {
-                var id = request.getSublistValue({
-                    group: 'ITEMS',
-                    line: i,
-                    name: ''
-                });
+                /*var id=request.getSublistValue({
+                    group:'ITEMS',
+                    line:i,
+                    name:''
+                });*/
                 actual[key][i] = {};
                 actual[key][i]['custpage_release_date'] = request.getSublistValue({
                     group: key,
