@@ -93,6 +93,17 @@ function onRequest(context: EntryPoints.Suitelet.onRequestContext) {
             value: 'y',
             text: 'Yearly'
         });
+        const itemId = request.parameters.itemid;
+
+        const hiddenItemField = form.addField({
+            id: 'custpage_itemid',
+            label: 'Item ID',
+            type: serverWidget.FieldType.TEXT
+        });
+        hiddenItemField.updateDisplayType({
+            displayType: serverWidget.FieldDisplayType.HIDDEN
+        });
+        hiddenItemField.defaultValue = itemId;
 
         form.addSubmitButton({ label: 'Save Schedule' });
 
@@ -107,7 +118,7 @@ function onRequest(context: EntryPoints.Suitelet.onRequestContext) {
         response.writePage(form);
     }
 
-    if (request.method === 'POST') {
+    /*if (request.method === 'POST') {
 
 
             const key = 'custpage_schedule_sublist';
@@ -124,11 +135,8 @@ function onRequest(context: EntryPoints.Suitelet.onRequestContext) {
             let failureCount = 0;
 
             for (let i = 0; i < lineCount; i++) {
-                /*var id=request.getSublistValue({
-                    group:'ITEMS',
-                    line:i,
-                    name:''
-                });*/
+                const itemId = request.parameters.itemid;
+
                 actual[key][i] = {};
 
                 actual[key][i]['custpage_release_date'] = request.getSublistValue({
@@ -186,10 +194,86 @@ function onRequest(context: EntryPoints.Suitelet.onRequestContext) {
             }
 
             response.write(`Schedule creation completed.<br>Success: ${successCount}<br>Failed: ${failureCount}`);
+        }*/
+    if (request.method === 'POST') {
+        const linkCode = request.parameters.custpage_itemid;
+
+        const key = 'custpage_schedule_sublist';
+        const lineCount = request.getLineCount({ group: key });
+
+        let successCount = 0;
+        let failureCount = 0;
+
+        for (let i = 0; i < lineCount; i++) {
+            const releaseDate = request.getSublistValue({
+                group: key,
+                name: 'custpage_release_date',
+                line: i
+            });
+
+            const releaseQty = request.getSublistValue({
+                group: key,
+                name: 'custpage_release_qty',
+                line: i
+            });
+
+            if (!releaseDate || !releaseQty) {
+                failureCount++;
+                continue;
+            }
+
+            try {
+                const sched = record.create({
+                    type: 'customrecord208',
+                    isDynamic: true
+                });
+
+                sched.setValue({
+                    fieldId: 'custrecordstdate',
+                    value: format.parse({
+                        value: releaseDate,
+                        type: format.Type.DATE
+                    })
+                });
+
+                sched.setValue({
+                    fieldId: 'custrecordqtyy',
+                    value: parseInt(releaseQty)
+                });
+
+                sched.setValue({
+                    fieldId: 'custrecord_sched_sched_code',
+                    value: linkCode
+                });
+
+                sched.setValue({
+                    fieldId: 'name',
+                    value: `Generated Schedule - ${i + 1}`
+                });
+
+                sched.save();
+                successCount++;
+
+            } catch (e: any) {
+                failureCount++;
+                log.error({
+                    title: `Schedule creation failed (Line ${i})`,
+                    details: e.message || e
+                });
+            }
         }
 
-
+        response.write(
+            `✅ Schedule creation completed.<br>` +
+            `Success: ${successCount}<br>` +
+            `Failed: ${failureCount}<br>` +
+            `Link Code: ${linkCode}`
+        );
     }
+
+
+
+}
 
 export = { onRequest };
 
