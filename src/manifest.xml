@@ -4,4 +4,15 @@
   <projectname>Blanket Sales Order</projectname>
   <projectversion>1.0.0</projectversion>
   <frameworkversion>1.0</frameworkversion>
+
+<!--  <description>This is BSO project</description>-->
+
+<!--  <dependencies></dependencies>-->
+
+<!--  <requiredfeatures>-->
+<!--    <feature>EXTREMELIST</feature>-->
+<!--    <feature>MULTILANGUAGE</feature>-->
+<!--  </requiredfeatures>-->
+
+
 </manifest>
