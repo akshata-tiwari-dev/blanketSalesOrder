@@ -3,6 +3,9 @@
         <path>~/FileCabinet/SuiteApps/com.netsuite.blanketsalesorder/*</path>
     </files>
     <objects>
+        <path>~/Objects/customrecordtype/customrecord_bso.xml</path>
+        <path>~/Objects/customrecordtype/customrecord_item.xml</path>
+        <path>~/Objects/customrecordtype/customrecord_schedule.xml</path>
         <path>~/Objects/*</path>
     </objects>
     <translationimports>

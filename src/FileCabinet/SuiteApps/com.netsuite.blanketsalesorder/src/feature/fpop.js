@@ -31,21 +31,24 @@ define(["require", "exports", "N/currentRecord"], function (require, exports, cu
     exports.fieldChanged = void 0;
     currentRecord = __importStar(currentRecord);
     const fieldChanged = (context) => {
-        var record = currentRecord.get();
+        const record = currentRecord.get();
+        const itemId = context.currentRecord.getCurrentSublistValue({
+            sublistId: 'recmachcustrecord_bso_item_sublist_link',
+            fieldId: 'custrecord_itemid'
+        });
         const isChecked = context.currentRecord.getCurrentSublistValue({
             sublistId: 'recmachcustrecord_bso_item_sublist_link',
-            fieldId: 'custrecord39'
+            fieldId: 'custrecord_gensch'
         });
-        //flow==fpop->suitelet->clientscript
-        //alert(isChecked ? 'Yes' : 'No');
+        //  const suiteletUrl = `/app/site/hosting/scriptlet.nl?script=123&deploy=1&itemid=${itemId}`;
         if (isChecked) {
-            nlExtOpenWindow('/app/site/hosting/scriptlet.nl?script=3523&deploy=1', 'EditSchedule', 800, 600);
-            // Optionally reset checkbox to false
-            /* context.currentRecord.setValue({
-                 fieldId: 'custrecord39',
-                 value: false
-             });*/
-            //alert("done");
+            if (!itemId) {
+                alert('Please save the record before creating a schedule.');
+                return;
+            }
+            const url = `/app/site/hosting/scriptlet.nl?script=140&deploy=1&itemid=${itemId}`;
+            alert(url);
+            nlExtOpenWindow(encodeURI(url), 'EditSchedule', 800, 600);
         }
     };
     exports.fieldChanged = fieldChanged;

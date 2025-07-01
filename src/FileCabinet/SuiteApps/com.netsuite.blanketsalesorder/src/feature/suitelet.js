@@ -109,6 +109,16 @@ define(["require", "exports", "N/ui/serverWidget", "N/record", "N/log", "N/forma
                 value: 'y',
                 text: 'Yearly'
             });
+            const itemId = request.parameters.itemid;
+            const hiddenItemField = form.addField({
+                id: 'custpage_itemid',
+                label: 'Item ID',
+                type: serverWidget_1.default.FieldType.TEXT
+            });
+            hiddenItemField.updateDisplayType({
+                displayType: serverWidget_1.default.FieldDisplayType.HIDDEN
+            });
+            hiddenItemField.defaultValue = itemId;
             form.addSubmitButton({ label: 'Save Schedule' });
             form.addButton({
                 id: 'custpage_auto_generate',
@@ -118,43 +128,107 @@ define(["require", "exports", "N/ui/serverWidget", "N/record", "N/log", "N/forma
             form.clientScriptModulePath = './clientscript.js';
             response.writePage(form);
         }
+        /*if (request.method === 'POST') {
+    
+    
+                const key = 'custpage_schedule_sublist';
+                const sublistItem = {
+                    custpage_release_date: true,
+                    custpage_release_qty: true
+                };
+    
+                const lineCount = request.getLineCount({ group: key });
+                const actual: Record<string, any> = {};
+                actual[key] = [];
+    
+                let successCount = 0;
+                let failureCount = 0;
+    
+                for (let i = 0; i < lineCount; i++) {
+                    const itemId = request.parameters.itemid;
+    
+                    actual[key][i] = {};
+    
+                    actual[key][i]['custpage_release_date'] = request.getSublistValue({
+                        group: key,
+                        name: 'custpage_release_date',
+                        line: i
+                    });
+    
+                    actual[key][i]['custpage_release_qty'] = request.getSublistValue({
+                        group: key,
+                        name: 'custpage_release_qty',
+                        line: i
+                    });
+    
+                    const releaseDate = actual[key][i]['custpage_release_date'];
+                    const releaseQty = actual[key][i]['custpage_release_qty'];
+    
+                    if (!releaseDate || !releaseQty) {
+                        failureCount++;
+                        continue;
+                    }
+    
+                    try {
+                        const sched = record.create({
+                            type: 'customrecord208',
+                            isDynamic: true
+                        });
+    
+                        sched.setValue({
+                            fieldId: 'custrecordstdate',
+                            value: format.parse({
+                                value: releaseDate,
+                                type: format.Type.DATE
+                            })
+                        });
+    
+                        sched.setValue({
+                            fieldId: 'custrecordqtyy',
+                            value: parseInt(releaseQty)
+                        });
+                        sched.setValue({
+                            fieldId: 'name',
+                            value: 'Generated Schedule - ' + (i + 1)
+                        });
+    
+                        sched.save();
+                        successCount++;
+                    } catch (e) {
+                        failureCount++;
+                        log.error({
+                            title: `Error Saving Schedule - Line ${i}`,
+                            details: e
+                        });
+                    }
+                }
+    
+                response.write(`Schedule creation completed.<br>Success: ${successCount}<br>Failed: ${failureCount}`);
+            }*/
         if (request.method === 'POST') {
+            const linkCode = request.parameters.custpage_itemid;
             const key = 'custpage_schedule_sublist';
-            const sublistItem = {
-                custpage_release_date: true,
-                custpage_release_qty: true
-            };
             const lineCount = request.getLineCount({ group: key });
-            const actual = {};
-            actual[key] = [];
             let successCount = 0;
             let failureCount = 0;
             for (let i = 0; i < lineCount; i++) {
-                /*var id=request.getSublistValue({
-                    group:'ITEMS',
-                    line:i,
-                    name:''
-                });*/
-                actual[key][i] = {};
-                actual[key][i]['custpage_release_date'] = request.getSublistValue({
+                const releaseDate = request.getSublistValue({
                     group: key,
                     name: 'custpage_release_date',
                     line: i
                 });
-                actual[key][i]['custpage_release_qty'] = request.getSublistValue({
+                const releaseQty = request.getSublistValue({
                     group: key,
                     name: 'custpage_release_qty',
                     line: i
                 });
-                const releaseDate = actual[key][i]['custpage_release_date'];
-                const releaseQty = actual[key][i]['custpage_release_qty'];
                 if (!releaseDate || !releaseQty) {
                     failureCount++;
                     continue;
                 }
                 try {
                     const sched = record.create({
-                        type: 'customrecord208',
+                        type: 'customrecord_schedule',
                         isDynamic: true
                     });
                     sched.setValue({
@@ -169,8 +243,12 @@ define(["require", "exports", "N/ui/serverWidget", "N/record", "N/log", "N/forma
                         value: parseInt(releaseQty)
                     });
                     sched.setValue({
+                        fieldId: 'custrecord_sched_sched_code',
+                        value: linkCode
+                    });
+                    sched.setValue({
                         fieldId: 'name',
-                        value: 'Generated Schedule - ' + (i + 1)
+                        value: `Generated Schedule - ${i + 1}`
                     });
                     sched.save();
                     successCount++;
@@ -178,12 +256,15 @@ define(["require", "exports", "N/ui/serverWidget", "N/record", "N/log", "N/forma
                 catch (e) {
                     failureCount++;
                     log.error({
-                        title: `Error Saving Schedule - Line ${i}`,
-                        details: e
+                        title: `Schedule creation failed (Line ${i})`,
+                        details: e.message || e
                     });
                 }
             }
-            response.write(`Schedule creation completed.<br>Success: ${successCount}<br>Failed: ${failureCount}`);
+            response.write(`✅ Schedule creation completed.<br>` +
+                `Success: ${successCount}<br>` +
+                `Failed: ${failureCount}<br>` +
+                `Link Code: ${linkCode}`);
         }
     }
     return { onRequest };
