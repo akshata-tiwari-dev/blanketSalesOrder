@@ -3,7 +3,7 @@
  * @NScriptType MapReduceScript
  */
 
-/*import { EntryPoints } from 'N/types';
+import { EntryPoints } from 'N/types';
 import * as query from 'N/query';
 import * as log from 'N/log';
 import * as record from 'N/record';
@@ -19,7 +19,7 @@ export const getInputData: EntryPoints.MapReduce.getInputData = () => {
 
         const queryString = `
             SELECT
--- bso.custrecord_orderid AS schedule_id,
+sch.id AS schedule_id,
                 sch.custrecordstdate AS release_date,
                 sch.custrecordqtyy AS quantity,
                 items.id AS item_line_id,
@@ -29,7 +29,7 @@ export const getInputData: EntryPoints.MapReduce.getInputData = () => {
                 bso.id AS bso_id,
                 bso.custrecord_customer AS customer_id
             FROM customrecord_schedule sch
-            JOIN customrecord_item items ON sch.custrecord_sched_sched_code = items.custrecord_itemid
+            JOIN customrecord_item items ON sch.custrecord_schsublink = items.id
             JOIN customrecord_bso bso ON items.custrecord_bso_item_sublist_link = bso.id
             WHERE TO_CHAR(sch.custrecordstdate, 'YYYY-MM-DD') = '${isoToday}'
         `;
@@ -65,12 +65,13 @@ export const map: EntryPoints.MapReduce.map = (context) => {
         customer_id: number;
         rate: number;
         location: number;
+        schedule_id: string;
     };
     // schedule_id: string;
 
     const releaseDate = data.release_date;
     const quantity = data.quantity;
-    // const scheduleId = data.schedule_id;
+    const scheduleId = data.schedule_id;
     const itemId = data.item_id;
     const customerId = data.customer_id;
     const rate = data.rate;
