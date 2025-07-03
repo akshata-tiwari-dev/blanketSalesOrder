@@ -6,31 +6,64 @@
 import serverWidget from 'N/ui/serverWidget';
 import * as record from 'N/record';
 import * as log from 'N/log';
+import * as cache from 'N/cache';
 import { EntryPoints } from 'N/types';
-import * as format from 'N/format';
 
-function onRequest(context: EntryPoints.Suitelet.onRequestContext) {
+// 🧩 Helper to parse delimited sublist data
+function parseScheduleList(sublistData: string): Array<{ date: string, qty: number }> {
+    const rows = sublistData.split('\x02');
+    const schedule: Array<{ date: string, qty: number }> = [];
+
+    for (let i = 0; i < rows.length - 1; i += 2) {
+        const dateStr = rows[i]?.trim();
+        const qtyStr = rows[i + 1]?.trim();
+        if (!dateStr || !qtyStr) continue;
+
+        const date = new Date(dateStr);
+        const qty = parseInt(qtyStr, 10);
+        if (!isFinite(date.getTime()) || isNaN(qty)) continue;
+
+        schedule.push({ date: date.toISOString(), qty });
+    }
+
+    return schedule;
+}
+
+export function onRequest(context: EntryPoints.Suitelet.onRequestContext) {
     const request = context.request;
     const response = context.response;
 
+    // 🟢 GET — render form
     if (request.method === 'GET') {
-        const form = serverWidget.createForm({ title: 'Schedule Generator' });
+        const itemId = request.parameters.itemid || '';
+        if (!itemId) {
+            response.write('Missing itemid parameter');
+            return;
+        }
 
-        form.addField({
-            id: 'custpage_start_date',
-            label: 'Start Date',
-            type: serverWidget.FieldType.DATE
+        const timestamp = Date.now();
+        const scheduleCode = `${itemId}-${timestamp}`;
+
+        const form = serverWidget.createForm({ title: 'Schedule Generator' });
+        form.clientScriptModulePath = './clientscript.js';
+
+        form.addField({ id: 'custpage_start_date', label: 'Start Date', type: serverWidget.FieldType.DATE });
+        form.addField({ id: 'custpage_end_date', label: 'End Date', type: serverWidget.FieldType.DATE });
+        form.addField({ id: 'custpage_quantity', label: 'Quantity', type: serverWidget.FieldType.INTEGER });
+
+        const freqField = form.addField({
+            id: 'custpage_release_freq',
+            label: 'Release Frequency',
+            type: serverWidget.FieldType.SELECT
         });
-        form.addField({
-            id: 'custpage_end_date',
-            label: 'End Date',
-            type: serverWidget.FieldType.DATE
-        });
-        form.addField({
-            id: 'custpage_quantity',
-            label: 'Quantity',
-            type: serverWidget.FieldType.INTEGER
-        });
+
+        freqField.addSelectOption({ value: '', text: 'Select Frequency' });
+        freqField.addSelectOption({ value: 'e', text: 'Daily' });
+        freqField.addSelectOption({ value: 'b', text: 'Weekly' });
+        freqField.addSelectOption({ value: 'c', text: 'Bi-Weekly' });
+        freqField.addSelectOption({ value: 'a', text: 'Monthly' });
+        freqField.addSelectOption({ value: 'd', text: 'Quarterly' });
+        freqField.addSelectOption({ value: 'y', text: 'Yearly' });
 
         const sublist = form.addSublist({
             id: 'custpage_schedule_sublist',
@@ -38,243 +71,88 @@ function onRequest(context: EntryPoints.Suitelet.onRequestContext) {
             type: serverWidget.SublistType.INLINEEDITOR
         });
 
-       /* sublist.addField({
-            id: 'custpage_item_id',
-            label: 'Item',
-            type: serverWidget.FieldType.SELECT,
-            source: '208'
-        });*/
+        sublist.addField({ id: 'custpage_release_date', label: 'Release Date', type: serverWidget.FieldType.DATE });
+        sublist.addField({ id: 'custpage_release_qty', label: 'Quantity', type: serverWidget.FieldType.INTEGER });
 
-        sublist.addField({
-            id: 'custpage_release_date',
-            label: 'Release Date',
-            type: serverWidget.FieldType.DATE
-        });
-       /* const objRecord = record.load({
-            type: 'customrecord606',
-            id:
-            isDynamic: true
-        });*/
+        const itemField = form.addField({ id: 'custpage_item_id', label: 'Item ID', type: serverWidget.FieldType.TEXT });
+        itemField.defaultValue = itemId;
+        itemField.updateDisplayType({ displayType: serverWidget.FieldDisplayType.HIDDEN });
 
-        sublist.addField({
-            id: 'custpage_release_qty',
-            label: 'Quantity',
-            type: serverWidget.FieldType.INTEGER
-        });
-       var f= form.addField({
-            id: 'custpage_release_freq',
-            label: 'RELEASE FREQUENCY',
-            type: serverWidget.FieldType.SELECT
-        });
-        f.addSelectOption({
-            value: 'e',
-            text: 'Daily'
-        });
+        const schedCodeField = form.addField({ id: 'custpage_schedule_code', label: 'Schedule Code', type: serverWidget.FieldType.TEXT });
+        schedCodeField.defaultValue = scheduleCode;
+        schedCodeField.updateDisplayType({ displayType: serverWidget.FieldDisplayType.HIDDEN });
 
-        f.addSelectOption({
-            value: 'b',
-            text: 'Weekly'
-        });
-        f.addSelectOption({
-            value: 'c',
-            text: 'Bi-Weekly'
-        });
-        f.addSelectOption({
-            value: 'a',
-            text: 'Monthly'
-        });
+        form.addButton({ id: 'custpage_auto_generate', label: 'Auto Generate', functionName: 'autoGenerateSchedule' });
+        form.addButton({ id: 'custpage_save_schedule', label: 'Save Schedule', functionName: 'saveScheduleToCache' });
 
-        f.addSelectOption({
-            value: 'd',
-            text: 'Quaterly'
-        });
-
-        f.addSelectOption({
-            value: 'y',
-            text: 'Yearly'
-        });
-        const itemId = request.parameters.itemid;
-
-        const hiddenItemField = form.addField({
-            id: 'custpage_itemid',
-            label: 'Item ID',
-            type: serverWidget.FieldType.TEXT
-        });
-        hiddenItemField.updateDisplayType({
-            displayType: serverWidget.FieldDisplayType.HIDDEN
-        });
-        hiddenItemField.defaultValue = itemId;
-
-        form.addSubmitButton({ label: 'Save Schedule' });
-
-        form.addButton({
-            id: 'custpage_auto_generate',
-            label: 'Auto Generate',
-            functionName: 'autoGenerateSchedule'
-        });
-
-        form.clientScriptModulePath = './clientscript.js';
+        form.addSubmitButton({ label: 'Done' });
 
         response.writePage(form);
     }
 
-    /*if (request.method === 'POST') {
-
-
-            const key = 'custpage_schedule_sublist';
-            const sublistItem = {
-                custpage_release_date: true,
-                custpage_release_qty: true
-            };
-
-            const lineCount = request.getLineCount({ group: key });
-            const actual: Record<string, any> = {};
-            actual[key] = [];
-
-            let successCount = 0;
-            let failureCount = 0;
-
-            for (let i = 0; i < lineCount; i++) {
-                const itemId = request.parameters.itemid;
-
-                actual[key][i] = {};
-
-                actual[key][i]['custpage_release_date'] = request.getSublistValue({
-                    group: key,
-                    name: 'custpage_release_date',
-                    line: i
-                });
-
-                actual[key][i]['custpage_release_qty'] = request.getSublistValue({
-                    group: key,
-                    name: 'custpage_release_qty',
-                    line: i
-                });
-
-                const releaseDate = actual[key][i]['custpage_release_date'];
-                const releaseQty = actual[key][i]['custpage_release_qty'];
-
-                if (!releaseDate || !releaseQty) {
-                    failureCount++;
-                    continue;
-                }
-
-                try {
-                    const sched = record.create({
-                        type: 'customrecord208',
-                        isDynamic: true
-                    });
-
-                    sched.setValue({
-                        fieldId: 'custrecordstdate',
-                        value: format.parse({
-                            value: releaseDate,
-                            type: format.Type.DATE
-                        })
-                    });
-
-                    sched.setValue({
-                        fieldId: 'custrecordqtyy',
-                        value: parseInt(releaseQty)
-                    });
-                    sched.setValue({
-                        fieldId: 'name',
-                        value: 'Generated Schedule - ' + (i + 1)
-                    });
-
-                    sched.save();
-                    successCount++;
-                } catch (e) {
-                    failureCount++;
-                    log.error({
-                        title: `Error Saving Schedule - Line ${i}`,
-                        details: e
-                    });
-                }
-            }
-
-            response.write(`Schedule creation completed.<br>Success: ${successCount}<br>Failed: ${failureCount}`);
-        }*/
+    // 🔴 POST — save to cache
     if (request.method === 'POST') {
-        const linkCode = request.parameters.custpage_itemid;
+        response.setHeader({ name: 'Content-Type', value: 'application/json' });
 
-        const key = 'custpage_schedule_sublist';
-        const lineCount = request.getLineCount({ group: key });
-
-        let successCount = 0;
-        let failureCount = 0;
-
-        for (let i = 0; i < lineCount; i++) {
-            const releaseDate = request.getSublistValue({
-                group: key,
-                name: 'custpage_release_date',
-                line: i
-            });
-
-            const releaseQty = request.getSublistValue({
-                group: key,
-                name: 'custpage_release_qty',
-                line: i
-            });
-
-            if (!releaseDate || !releaseQty) {
-                failureCount++;
-                continue;
+        try {
+            if (!request.body || typeof request.body !== 'string') {
+                log.error('Missing POST body', 'No data received.');
+                response.write(JSON.stringify({
+                    success: false,
+                    message: 'No data received.'
+                }));
+                return;
             }
 
-            try {
-                const sched = record.create({
-                    type: 'customrecord_schedule',
-                    isDynamic: true
+            let scheduleCode: string;
+            let scheduleData: any[];
+            let itemId: string;
+            const body = request.body.trim();
+
+            if (body.startsWith('{')) {
+                const parsed = JSON.parse(body);
+                scheduleCode = parsed.scheduleCode;
+                scheduleData = parsed.scheduleData;
+                itemId = parsed.itemId || scheduleCode?.split('-')[0];
+            } else if (body.includes('custpage_schedule_code=') && body.includes('custpage_schedule_sublistdata=')) {
+                const params: Record<string, string> = {};
+                body.split('&').forEach(p => {
+                    const [k, v] = p.split('=');
+                    if (k && v) params[decodeURIComponent(k)] = decodeURIComponent(v);
                 });
 
-                sched.setValue({
-                    fieldId: 'custrecordstdate',
-                    value: format.parse({
-                        value: releaseDate,
-                        type: format.Type.DATE
-                    })
-                });
-
-                sched.setValue({
-                    fieldId: 'custrecordqtyy',
-                    value: parseInt(releaseQty)
-                });
-
-                sched.setValue({
-                    fieldId: 'custrecord_sched_sched_code',
-                    value: linkCode
-                });
-
-                sched.setValue({
-                    fieldId: 'name',
-                    value: `Generated Schedule - ${i + 1}`
-                });
-
-                sched.save();
-                successCount++;
-
-            } catch (e: any) {
-                failureCount++;
-                log.error({
-                    title: `Schedule creation failed (Line ${i})`,
-                    details: e.message || e
-                });
+                scheduleCode = params['custpage_schedule_code'];
+                const rawData = params['custpage_schedule_sublistdata'];
+                scheduleData = rawData ? parseScheduleList(rawData) : [];
+                itemId = scheduleCode?.split('-')[0];
+            } else {
+                throw new Error('Unsupported POST format.');
             }
+            log.debug('ScheduleData received', scheduleData.length);
+            if (!scheduleCode || !Array.isArray(scheduleData) || !itemId) {
+                throw new Error('Missing or invalid scheduleCode or itemId');
+            }
+
+            const scheduleCache = cache.getCache({ name: 'item_schedule_cache', scope: cache.Scope.PUBLIC });
+            scheduleCache.put({ key: scheduleCode, value: JSON.stringify(scheduleData), ttl: 3600 });
+
+            const reverseCache = cache.getCache({ name: 'item_schedule_latest', scope: cache.Scope.PUBLIC });
+            reverseCache.put({ key: `last-schedule-for-item-${itemId}`, value: scheduleCode, ttl: 300 });
+            log.debug('Reverse cache entry stored', `Key: last-schedule-for-item-${itemId}, Value: ${scheduleCode}`);
+
+            log.audit('Schedule cached', `Item ID: ${itemId}, Schedule Code: ${scheduleCode}, Entries: ${scheduleData.length}`);
+
+            response.write(JSON.stringify({
+                success: true,
+                message: `Schedule saved under code: ${scheduleCode}`
+            }));
+
+        } catch (e: any) {
+            log.error('POST handler error', e.message || e);
+            response.write(JSON.stringify({
+                success: false,
+                message: e.message || 'Unexpected error'
+            }));
         }
-
-        response.write(
-            `✅ Schedule creation completed.<br>` +
-            `Success: ${successCount}<br>` +
-            `Failed: ${failureCount}<br>` +
-            `Link Code: ${linkCode}`
-        );
     }
-
-
-
 }
-
-export = { onRequest };
-
-

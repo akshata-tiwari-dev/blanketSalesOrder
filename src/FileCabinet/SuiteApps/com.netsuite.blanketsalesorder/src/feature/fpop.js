@@ -46,7 +46,7 @@ define(["require", "exports", "N/currentRecord"], function (require, exports, cu
                 alert('Please save the record before creating a schedule.');
                 return;
             }
-            const url = `/app/site/hosting/scriptlet.nl?script=140&deploy=1&itemid=${itemId}`;
+            const url = `/app/site/hosting/scriptlet.nl?script=152&deploy=1&itemid=${itemId}`;
             alert(url);
             nlExtOpenWindow(encodeURI(url), 'EditSchedule', 800, 600);
         }

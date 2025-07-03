@@ -3,7 +3,7 @@
  * @NScriptType MapReduceScript
  */
 
-import { EntryPoints } from 'N/types';
+/*import { EntryPoints } from 'N/types';
 import * as query from 'N/query';
 import * as log from 'N/log';
 import * as record from 'N/record';
@@ -19,7 +19,7 @@ export const getInputData: EntryPoints.MapReduce.getInputData = () => {
 
         const queryString = `
             SELECT
-                bso.custrecord_orderid AS schedule_id,
+-- bso.custrecord_orderid AS schedule_id,
                 sch.custrecordstdate AS release_date,
                 sch.custrecordqtyy AS quantity,
                 items.id AS item_line_id,
@@ -43,7 +43,7 @@ export const getInputData: EntryPoints.MapReduce.getInputData = () => {
 
         if (results.length > 0) {
             log.debug('First Result Sample', JSON.stringify(results[0]));
-            return results.map(JSON.stringify); // Required for map() to trigger
+            return results.map(JSON.stringify);
         } else {
             log.audit('No Results Found', 'SuiteQL returned 0 rows');
             return [];
@@ -58,7 +58,7 @@ export const map: EntryPoints.MapReduce.map = (context) => {
     log.audit('MAP INVOKED', context.value);
 
     const data = JSON.parse(context.value) as {
-        schedule_id: string;
+
         release_date: string;
         quantity: number;
         item_id: number;
@@ -66,10 +66,11 @@ export const map: EntryPoints.MapReduce.map = (context) => {
         rate: number;
         location: number;
     };
+    // schedule_id: string;
 
     const releaseDate = data.release_date;
     const quantity = data.quantity;
-    const scheduleId = data.schedule_id;
+    // const scheduleId = data.schedule_id;
     const itemId = data.item_id;
     const customerId = data.customer_id;
     const rate = data.rate;
@@ -90,7 +91,7 @@ export const map: EntryPoints.MapReduce.map = (context) => {
 
         salesOrder.setValue({ fieldId: 'entity', value: customerId });
         salesOrder.setValue({ fieldId: 'trandate', value: new Date(releaseDate) });
-        // salesOrder.setValue({ fieldId: 'location', value: locationId }); // Enable only if valid
+        // salesOrder.setValue({ fieldId: 'location', value: locationId });
         salesOrder.setValue({ fieldId: 'otherrefnum', value: scheduleId });
         salesOrder.setValue({ fieldId: 'custbodyiscreated', value: true });
 

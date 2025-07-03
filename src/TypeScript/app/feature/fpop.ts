@@ -27,7 +27,7 @@ export const fieldChanged: ClientScript['fieldChanged'] = (context) => {
             return;
         }
 
-        const url = `/app/site/hosting/scriptlet.nl?script=140&deploy=1&itemid=${itemId}`;
+        const url = `/app/site/hosting/scriptlet.nl?script=152&deploy=1&itemid=${itemId}`;
         alert(url);
         nlExtOpenWindow(
             encodeURI(url),
@@ -36,4 +36,5 @@ export const fieldChanged: ClientScript['fieldChanged'] = (context) => {
             600
         );
     }
-}
+
+};

@@ -120,86 +120,6 @@
       <storevalue>T</storevalue>
       <subtab/>
     </customrecordcustomfield>
-    <customrecordcustomfield scriptid="custrecord_bsodate">
-      <accesslevel>2</accesslevel>
-      <allowquickadd>F</allowquickadd>
-      <applyformatting>F</applyformatting>
-      <checkspelling>F</checkspelling>
-      <defaultchecked>F</defaultchecked>
-      <defaultselection/>
-      <defaultvalue/>
-      <description/>
-      <displayheight/>
-      <displaytype>NORMAL</displaytype>
-      <displaywidth/>
-      <dynamicdefault/>
-      <enabletextenhance>F</enabletextenhance>
-      <encryptatrest>F</encryptatrest>
-      <fieldtype>DATE</fieldtype>
-      <globalsearch>F</globalsearch>
-      <help/>
-      <isformula>F</isformula>
-      <ismandatory>T</ismandatory>
-      <isparent>F</isparent>
-      <label>Date</label>
-      <linktext/>
-      <maxlength/>
-      <maxvalue/>
-      <minvalue/>
-      <onparentdelete/>
-      <parentsubtab/>
-      <rolerestrict>F</rolerestrict>
-      <searchcomparefield/>
-      <searchdefault/>
-      <searchlevel>2</searchlevel>
-      <selectrecordtype/>
-      <showinlist>T</showinlist>
-      <sourcefilterby/>
-      <sourcefrom/>
-      <sourcelist/>
-      <storevalue>T</storevalue>
-      <subtab/>
-    </customrecordcustomfield>
-    <customrecordcustomfield scriptid="custrecord_orderid">
-      <accesslevel>2</accesslevel>
-      <allowquickadd>F</allowquickadd>
-      <applyformatting>F</applyformatting>
-      <checkspelling>F</checkspelling>
-      <defaultchecked>F</defaultchecked>
-      <defaultselection/>
-      <defaultvalue/>
-      <description/>
-      <displayheight/>
-      <displaytype>NORMAL</displaytype>
-      <displaywidth/>
-      <dynamicdefault/>
-      <enabletextenhance>F</enabletextenhance>
-      <encryptatrest>F</encryptatrest>
-      <fieldtype>TEXT</fieldtype>
-      <globalsearch>F</globalsearch>
-      <help/>
-      <isformula>F</isformula>
-      <ismandatory>F</ismandatory>
-      <isparent>F</isparent>
-      <label>Order #</label>
-      <linktext/>
-      <maxlength/>
-      <maxvalue/>
-      <minvalue/>
-      <onparentdelete/>
-      <parentsubtab/>
-      <rolerestrict>F</rolerestrict>
-      <searchcomparefield/>
-      <searchdefault/>
-      <searchlevel>2</searchlevel>
-      <selectrecordtype/>
-      <showinlist>T</showinlist>
-      <sourcefilterby/>
-      <sourcefrom/>
-      <sourcelist/>
-      <storevalue>T</storevalue>
-      <subtab/>
-    </customrecordcustomfield>
     <customrecordcustomfield scriptid="custrecord_project">
       <accesslevel>2</accesslevel>
       <allowquickadd>F</allowquickadd>
@@ -255,7 +175,7 @@
       <dynamicdefault/>
       <enabletextenhance>F</enabletextenhance>
       <encryptatrest>F</encryptatrest>
-      <fieldtype>SELECT</fieldtype>
+      <fieldtype>TEXT</fieldtype>
       <globalsearch>F</globalsearch>
       <help/>
       <isformula>F</isformula>
@@ -266,13 +186,13 @@
       <maxlength/>
       <maxvalue/>
       <minvalue/>
-      <onparentdelete>NO_ACTION</onparentdelete>
+      <onparentdelete/>
       <parentsubtab/>
       <rolerestrict>F</rolerestrict>
       <searchcomparefield/>
       <searchdefault/>
       <searchlevel>2</searchlevel>
-      <selectrecordtype>-117</selectrecordtype>
+      <selectrecordtype/>
       <showinlist>T</showinlist>
       <sourcefilterby/>
       <sourcefrom/>
@@ -320,86 +240,6 @@
       <storevalue>T</storevalue>
       <subtab/>
     </customrecordcustomfield>
-    <customrecordcustomfield scriptid="custrecordst_">
-      <accesslevel>2</accesslevel>
-      <allowquickadd>F</allowquickadd>
-      <applyformatting>F</applyformatting>
-      <checkspelling>F</checkspelling>
-      <defaultchecked>F</defaultchecked>
-      <defaultselection/>
-      <defaultvalue/>
-      <description/>
-      <displayheight/>
-      <displaytype>NORMAL</displaytype>
-      <displaywidth/>
-      <dynamicdefault/>
-      <enabletextenhance>F</enabletextenhance>
-      <encryptatrest>F</encryptatrest>
-      <fieldtype>CHECKBOX</fieldtype>
-      <globalsearch>F</globalsearch>
-      <help/>
-      <isformula>F</isformula>
-      <ismandatory>F</ismandatory>
-      <isparent>F</isparent>
-      <label>APPPROVAL STATUS</label>
-      <linktext/>
-      <maxlength/>
-      <maxvalue/>
-      <minvalue/>
-      <onparentdelete/>
-      <parentsubtab/>
-      <rolerestrict>F</rolerestrict>
-      <searchcomparefield/>
-      <searchdefault/>
-      <searchlevel>2</searchlevel>
-      <selectrecordtype/>
-      <showinlist>T</showinlist>
-      <sourcefilterby/>
-      <sourcefrom/>
-      <sourcelist/>
-      <storevalue>T</storevalue>
-      <subtab/>
-    </customrecordcustomfield>
-    <customrecordcustomfield scriptid="custrecorde_id">
-      <accesslevel>2</accesslevel>
-      <allowquickadd>F</allowquickadd>
-      <applyformatting>F</applyformatting>
-      <checkspelling>F</checkspelling>
-      <defaultchecked>F</defaultchecked>
-      <defaultselection/>
-      <defaultvalue/>
-      <description/>
-      <displayheight/>
-      <displaytype>NORMAL</displaytype>
-      <displaywidth/>
-      <dynamicdefault/>
-      <enabletextenhance>F</enabletextenhance>
-      <encryptatrest>F</encryptatrest>
-      <fieldtype>EMAIL</fieldtype>
-      <globalsearch>F</globalsearch>
-      <help/>
-      <isformula>F</isformula>
-      <ismandatory>F</ismandatory>
-      <isparent>F</isparent>
-      <label>EMAIL ID</label>
-      <linktext/>
-      <maxlength/>
-      <maxvalue/>
-      <minvalue/>
-      <onparentdelete/>
-      <parentsubtab/>
-      <rolerestrict>F</rolerestrict>
-      <searchcomparefield/>
-      <searchdefault/>
-      <searchlevel>2</searchlevel>
-      <selectrecordtype/>
-      <showinlist>F</showinlist>
-      <sourcefilterby/>
-      <sourcefrom/>
-      <sourcelist/>
-      <storevalue>T</storevalue>
-      <subtab/>
-    </customrecordcustomfield>
     <customrecordcustomfield scriptid="custrecordnotify">
       <accesslevel>2</accesslevel>
       <allowquickadd>F</allowquickadd>
@@ -421,7 +261,7 @@
       <isformula>F</isformula>
       <ismandatory>F</ismandatory>
       <isparent>F</isparent>
-      <label>SEND NOTIFICATION</label>
+      <label>Send Notification</label>
       <linktext/>
       <maxlength/>
       <maxvalue/>
@@ -433,6 +273,46 @@
       <searchdefault/>
       <searchlevel>2</searchlevel>
       <selectrecordtype/>
+      <showinlist>F</showinlist>
+      <sourcefilterby/>
+      <sourcefrom/>
+      <sourcelist/>
+      <storevalue>T</storevalue>
+      <subtab/>
+    </customrecordcustomfield>
+    <customrecordcustomfield scriptid="custrecord125">
+      <accesslevel>2</accesslevel>
+      <allowquickadd>F</allowquickadd>
+      <applyformatting>F</applyformatting>
+      <checkspelling>F</checkspelling>
+      <defaultchecked>F</defaultchecked>
+      <defaultselection/>
+      <defaultvalue/>
+      <description/>
+      <displayheight/>
+      <displaytype>NORMAL</displaytype>
+      <displaywidth/>
+      <dynamicdefault/>
+      <enabletextenhance>F</enabletextenhance>
+      <encryptatrest>F</encryptatrest>
+      <fieldtype>SELECT</fieldtype>
+      <globalsearch>F</globalsearch>
+      <help/>
+      <isformula>F</isformula>
+      <ismandatory>F</ismandatory>
+      <isparent>F</isparent>
+      <label>Status</label>
+      <linktext/>
+      <maxlength/>
+      <maxvalue/>
+      <minvalue/>
+      <onparentdelete>NO_ACTION</onparentdelete>
+      <parentsubtab/>
+      <rolerestrict>F</rolerestrict>
+      <searchcomparefield/>
+      <searchdefault/>
+      <searchlevel>2</searchlevel>
+      <selectrecordtype>-243</selectrecordtype>
       <showinlist>F</showinlist>
       <sourcefilterby/>
       <sourcefrom/>
