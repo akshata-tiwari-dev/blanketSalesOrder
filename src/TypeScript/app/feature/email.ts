@@ -38,7 +38,7 @@ export const afterSubmit: EntryPoints.UserEvent.afterSubmit = (context) => {
 
         email.send({
             author: runtime.getCurrentUser().id,
-            recipients: emailTo,
+            recipients: emailTo as string, //test case passes on addinf string
             subject: `Order Confirmation: ${tranId}`,
             body: `Dear customer, your Blanket Sales Order ${tranId} has been submitted successfully.`
         });

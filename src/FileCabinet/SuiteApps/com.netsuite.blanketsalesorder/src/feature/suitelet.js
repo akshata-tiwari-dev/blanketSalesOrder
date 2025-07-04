@@ -95,7 +95,7 @@ define(["require", "exports", "N/ui/serverWidget", "N/log", "N/cache"], function
             schedCodeField.defaultValue = scheduleCode;
             schedCodeField.updateDisplayType({ displayType: serverWidget_1.default.FieldDisplayType.HIDDEN });
             form.addButton({ id: 'custpage_auto_generate', label: 'Auto Generate', functionName: 'autoGenerateSchedule' });
-            form.addButton({ id: 'custpage_save_schedule', label: 'Save Schedule', functionName: 'saveScheduleToCache' });
+            //form.addButton({ id: 'custpage_save_schedule', label: 'Save Schedule', functionName: 'saveScheduleToCache' });
             form.addSubmitButton({ label: 'Done' });
             response.writePage(form);
         }

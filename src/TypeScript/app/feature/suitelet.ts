@@ -83,7 +83,7 @@ export function onRequest(context: EntryPoints.Suitelet.onRequestContext) {
         schedCodeField.updateDisplayType({ displayType: serverWidget.FieldDisplayType.HIDDEN });
 
         form.addButton({ id: 'custpage_auto_generate', label: 'Auto Generate', functionName: 'autoGenerateSchedule' });
-        form.addButton({ id: 'custpage_save_schedule', label: 'Save Schedule', functionName: 'saveScheduleToCache' });
+        //form.addButton({ id: 'custpage_save_schedule', label: 'Save Schedule', functionName: 'saveScheduleToCache' });
 
         form.addSubmitButton({ label: 'Done' });
 

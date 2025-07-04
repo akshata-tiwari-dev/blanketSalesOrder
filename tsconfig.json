@@ -15,10 +15,13 @@
         "jsxImportSource": "@uif-js/core",
         "paths": {
             "N": ["node_modules/@hitc/netsuite-types/N"],
-            "N/*": ["node_modules/@hitc/netsuite-types/N/*"]
+            "N/*": ["node_modules/@hitc/netsuite-types/N/*"],
+            "@app/*": ["src/TypeScript/app/*"] //jest
         },
-        "typeRoots": ["node_modules/@types", "node_modules/@oracle/netsuite-uif-types"]
+        "typeRoots": ["node_modules/@types", "node_modules/@oracle/netsuite-uif-types"],
+        "skipLibCheck": true, //change for jest
+        "strict" : true //jest
     },
-    "exclude": ["./test/**/*", "./src/TypeScript/types/*", "./src/TypeScript/stubs/*"],
+    "exclude": ["./test/**/*", "./src/TypeScript/types/*", "./src/TypeScript/stubs/*","node_modules", "dist"],  //exclude node mod, dist - jest
     "include": ["./src/TypeScript/app/**/*"]
 }

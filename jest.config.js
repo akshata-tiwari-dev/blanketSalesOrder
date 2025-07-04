@@ -16,7 +16,8 @@ module.exports = {
         '^N/(.*)': '<rootDir>/node_modules/@hitc/netsuite-types/N/$1',
         '^@uif-js/core$': '<rootDir>/src/TypeScript/stubs/@uif-js/core.ts',
         '^@uif-js/component$': '<rootDir>/src/TypeScript/stubs/@uif-js/component.ts',
-        '^@uif-js/core/jsx-runtime$': '<rootDir>/src/TypeScript/stubs/@uif-js/core/jsx-runtime.ts'
+        '^@uif-js/core/jsx-runtime$': '<rootDir>/src/TypeScript/stubs/@uif-js/core/jsx-runtime.ts',
+        '^@app/(.*)$': '<rootDir>/src/TypeScript/app/$1', //jest
     },
     // A preset that is used as a base for Jest's configuration
     preset: 'ts-jest',

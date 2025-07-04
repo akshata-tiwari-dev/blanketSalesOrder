@@ -7,12 +7,20 @@ import * as currentRecord from 'N/currentRecord';
 
 export function pageInit(context: any) {}
 
+let isGenerated = false; // Prevent multiple clicks
+
 export function autoGenerateSchedule() {
+    if (isGenerated) {
+        alert('Schedule has already been auto-generated.');
+        return;
+    }
+
     const rec = currentRecord.get();
     const sd = rec.getValue({ fieldId: 'custpage_start_date' }) as string;
     const ed = rec.getValue({ fieldId: 'custpage_end_date' }) as string;
     const qty = parseInt(rec.getValue({ fieldId: 'custpage_quantity' }) as string, 10);
     const freq = rec.getValue({ fieldId: 'custpage_release_freq' }) as string;
+    const sublistId = 'custpage_schedule_sublist';
 
     if (!sd || !ed || isNaN(qty) || !freq) {
         alert('Please fill all required fields.');
@@ -23,12 +31,45 @@ export function autoGenerateSchedule() {
     const interval = freqDays[freq] || 1;
     const msPerDay = 86400000;
 
-    let start = new Date(sd);
     const end = new Date(ed);
+    let latestDate: Date | null = null;
+    let existingTotal = 0;
+
+    const lineCount = rec.getLineCount({ sublistId });
+    for (let i = 0; i < lineCount; i++) {
+        const lineQty = parseInt(rec.getSublistValue({
+            sublistId,
+            fieldId: 'custpage_release_qty',
+            line: i
+        }) as string, 10) || 0;
+
+        const lineDateStr = rec.getSublistValue({
+            sublistId,
+            fieldId: 'custpage_release_date',
+            line: i
+        }) as string;
+
+        const lineDate = new Date(lineDateStr);
+        if (!isNaN(lineDate.getTime()) && (!latestDate || lineDate > latestDate)) {
+            latestDate = lineDate;
+        }
+
+        existingTotal += lineQty;
+    }
+
+    if (existingTotal >= qty) {
+        alert(`Total quantity in sublist (${existingTotal}) is equal to or exceeds total quantity (${qty}). Auto-generation not needed.`);
+        return;
+    }
+
+    const remainingQty = qty - existingTotal;
+
+    // Determine start date: after last manual release, or use original start date
+    let start = latestDate ? new Date(latestDate.getTime() + msPerDay) : new Date(sd);
     const totalDays = Math.floor((end.getTime() - start.getTime()) / msPerDay);
 
     if (totalDays <= 0) {
-        alert('End Date must be after Start Date.');
+        alert('Date range too short or end date is before start date.');
         return;
     }
 
@@ -38,25 +79,29 @@ export function autoGenerateSchedule() {
         return;
     }
 
-    const baseQty = Math.floor(qty / chunks);
-    const remainder = qty % chunks;
+    const baseQty = Math.floor(remainingQty / chunks);
+    const remainder = remainingQty % chunks;
 
     for (let i = 0; i < chunks; i++) {
         start = new Date(start.getTime() + interval * msPerDay);
-        rec.selectNewLine({ sublistId: 'custpage_schedule_sublist' });
+
+        rec.selectNewLine({ sublistId });
         rec.setCurrentSublistValue({
-            sublistId: 'custpage_schedule_sublist',
+            sublistId,
             fieldId: 'custpage_release_date',
             value: start
         });
         rec.setCurrentSublistValue({
-            sublistId: 'custpage_schedule_sublist',
+            sublistId,
             fieldId: 'custpage_release_qty',
             value: i === 0 ? baseQty + remainder : baseQty
         });
-        rec.commitLine({ sublistId: 'custpage_schedule_sublist' });
+        rec.commitLine({ sublistId });
     }
+
+    isGenerated = true; // Lock further generation
 }
+
 
 export function saveScheduleToCache() {
     try {
@@ -109,4 +154,8 @@ export function saveScheduleToCache() {
     } catch (e: any) {
         alert('Client error: ' + e.message);
     }
+}
+
+export function saveRecord(context: any): boolean {
+    return saveScheduleToCache();
 }
