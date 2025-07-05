@@ -28,7 +28,7 @@ var __importStar = (this && this.__importStar) || function (mod) {
 define(["require", "exports", "N/query", "N/log", "N/record"], function (require, exports, query, log, record) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
-    exports.map = exports.getInputData = void 0;
+    exports.reduce = exports.map = exports.getInputData = void 0;
     query = __importStar(query);
     log = __importStar(log);
     record = __importStar(record);
@@ -41,7 +41,7 @@ define(["require", "exports", "N/query", "N/log", "N/record"], function (require
             const isoToday = today.toISOString().split('T')[0];
             const queryString = `
             SELECT
-sch.id AS schedule_id,
+                sch.id AS schedule_id,
                 sch.custrecordstdate AS release_date,
                 sch.custrecordqtyy AS quantity,
                 items.id AS item_line_id,
@@ -61,7 +61,7 @@ sch.id AS schedule_id,
             log.audit('SuiteQL Result Count', results.length);
             if (results.length > 0) {
                 log.debug('First Result Sample', JSON.stringify(results[0]));
-                return results.map(result => JSON.stringify(result)); //used shorthand b4 but jest case failed
+                return results.map(result => JSON.stringify(result)); // ✅ Keep for compatibility
             }
             else {
                 log.audit('No Results Found', 'SuiteQL returned 0 rows');
@@ -75,46 +75,49 @@ sch.id AS schedule_id,
     };
     exports.getInputData = getInputData;
     const map = (context) => {
-        log.audit('MAP INVOKED', context.value);
         const data = JSON.parse(context.value);
-        // schedule_id: string;
-        const releaseDate = data.release_date;
-        const quantity = data.quantity;
         const scheduleId = data.schedule_id;
-        const itemId = data.item_id;
-        const customerId = data.customer_id;
-        const rate = data.rate;
-        const amount = rate * quantity;
-        const locationId = data.location;
+        const releaseDate = formatDate(new Date(data.release_date));
         const today = formatDate(new Date());
-        const release = formatDate(new Date(releaseDate));
-        log.debug('Date Check', `ReleaseDate: ${release}, Today: ${today}`);
-        log.audit('Today Match', `Schedule ID ${scheduleId} is due today with quantity ${quantity}`);
+        if (releaseDate === today) {
+            log.audit('Today Match', `Schedule ID ${scheduleId} — Release Date: ${releaseDate}, Today: ${today}`);
+        }
+        else {
+            log.audit('Not Today', `Schedule ID ${scheduleId} — Release Date: ${releaseDate}, Today: ${today}`);
+        }
+        // Group by customerId
+        context.write({
+            key: data.customer_id,
+            value: JSON.stringify(data)
+        });
+    };
+    exports.map = map;
+    const reduce = (context) => {
+        const customerId = context.key;
+        const items = context.values.map(val => JSON.parse(val));
+        log.audit('Creating Sales Order for Customer', customerId);
         try {
             const salesOrder = record.create({
                 type: record.Type.SALES_ORDER,
                 isDynamic: true
             });
-            salesOrder.setValue({ fieldId: 'entity', value: customerId });
-            salesOrder.setValue({ fieldId: 'trandate', value: new Date(releaseDate) });
-            // salesOrder.setValue({ fieldId: 'location', value: locationId });
-            salesOrder.setValue({ fieldId: 'otherrefnum', value: scheduleId });
+            salesOrder.setValue({ fieldId: 'entity', value: parseInt(customerId) });
+            salesOrder.setValue({ fieldId: 'trandate', value: new Date(items[0].release_date) });
             salesOrder.setValue({ fieldId: 'custbodyiscreated', value: true });
-            salesOrder.selectNewLine({ sublistId: 'item' });
-            salesOrder.setCurrentSublistValue({ sublistId: 'item', fieldId: 'item', value: itemId });
-            salesOrder.setCurrentSublistValue({ sublistId: 'item', fieldId: 'quantity', value: quantity });
-            salesOrder.setCurrentSublistValue({ sublistId: 'item', fieldId: 'rate', value: rate });
-            salesOrder.setCurrentSublistValue({ sublistId: 'item', fieldId: 'amount', value: amount });
-            salesOrder.commitLine({ sublistId: 'item' });
+            for (const entry of items) {
+                salesOrder.selectNewLine({ sublistId: 'item' });
+                const safeRate = entry.rate && !isNaN(entry.rate) ? Number(entry.rate) : 0;
+                salesOrder.setCurrentSublistValue({ sublistId: 'item', fieldId: 'item', value: entry.item_id });
+                salesOrder.setCurrentSublistValue({ sublistId: 'item', fieldId: 'quantity', value: entry.quantity });
+                salesOrder.setCurrentSublistValue({ sublistId: 'item', fieldId: 'rate', value: safeRate });
+                salesOrder.commitLine({ sublistId: 'item' });
+            }
             const salesOrderId = salesOrder.save();
-            log.audit('Sales Order Created', `ID: ${salesOrderId} for Schedule ID ${scheduleId}`);
+            log.audit('Sales Order Created', `Customer: ${customerId}, ID: ${salesOrderId}`);
         }
         catch (e) {
-            log.error({
-                title: `Sales Order Creation Failed for Schedule ID ${scheduleId}`,
-                details: e.message
-            });
+            log.error(`SO creation failed for Customer ${customerId}`, e.message);
         }
     };
-    exports.map = map;
+    exports.reduce = reduce;
 });
