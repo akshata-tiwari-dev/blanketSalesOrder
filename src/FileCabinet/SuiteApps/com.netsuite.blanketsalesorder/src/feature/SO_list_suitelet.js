@@ -21,7 +21,7 @@ var __importStar = (this && this.__importStar) || function (mod) {
     __setModuleDefault(result, mod);
     return result;
 };
-define(["require", "exports", "N/ui/serverWidget", "N/search", "N/task", "N/log"], function (require, exports, ui, search, task, log) {
+define(["require", "exports", "N/ui/serverWidget", "N/search", "N/task", "N/log", "N/format"], function (require, exports, ui, search, task, log, format) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.onRequest = void 0;
@@ -29,6 +29,7 @@ define(["require", "exports", "N/ui/serverWidget", "N/search", "N/task", "N/log"
     search = __importStar(search);
     task = __importStar(task);
     log = __importStar(log);
+    format = __importStar(format);
     function formatDate(date) {
         return (date.getMonth() + 1) + '/' + date.getDate() + '/' + date.getFullYear();
     }
@@ -40,7 +41,7 @@ define(["require", "exports", "N/ui/serverWidget", "N/search", "N/task", "N/log"
                 const mrTask = task.create({
                     taskType: task.TaskType.MAP_REDUCE,
                     scriptId: 'customscript164',
-                    deploymentId: 'customdeploy1' // Replace with your deployment ID
+                    deploymentId: 'customdeploy1'
                 });
                 const taskId = mrTask.submit();
                 log.audit('MR Triggered via Suitelet', `Task ID: ${taskId}`);
@@ -67,12 +68,24 @@ define(["require", "exports", "N/ui/serverWidget", "N/search", "N/task", "N/log"
         sublist.addField({ id: 'entity', type: ui.FieldType.TEXT, label: 'Customer' });
         sublist.addField({ id: 'trandate', type: ui.FieldType.DATE, label: 'Date' });
         const today = new Date();
-        const formattedToday = formatDate(today);
+        const nsToday = format.format({
+            value: today,
+            type: format.Type.DATE
+        });
+        const nsTodayWithTime = format.format({
+            value: today,
+            type: format.Type.DATETIME
+        });
+        log.debug('NetSuite Today (formatted)', nsTodayWithTime);
         try {
             const soSearch = search.create({
                 type: search.Type.SALES_ORDER,
                 filters: [
-                    ['trandate', 'on', formattedToday],
+                    // ['trandate', 'on', formattedToday],
+                    // 'AND',
+                    ['trandate', 'onorafter', nsToday],
+                    'AND',
+                    ['trandate', 'onorbefore', nsToday],
                     'AND',
                     ['mainline', 'is', 'T'],
                     // Optional: add [

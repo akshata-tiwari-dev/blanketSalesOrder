@@ -16,8 +16,8 @@ export function pageInit(context) {
  * Actual function triggered from the Suitelet's button.
  */
 export function triggerMapReduce() {
-    const scriptId = 'customscript161';      // Your Suitelet Script ID
-    const deploymentId = 'customdeploy1';    // Your Suitelet Deployment ID
+    const scriptId = 'customscript161';
+    const deploymentId = 'customdeploy1';
 
     const baseUrl = window.location.origin;
     const url = `${baseUrl}/app/site/hosting/scriptlet.nl?script=${scriptId}&deploy=${deploymentId}&action=runmr`;

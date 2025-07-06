@@ -47,11 +47,11 @@ define(["require", "exports", "N/record", "N/cache", "N/log", "N/search", "N/for
             name: 'item_schedule_cache',
             scope: cache.Scope.PUBLIC
         });
-        // 🔍 Search for all item line records linked to this BSO
+        // :mag: Search for all item line records linked to this BSO
         const lineSearch = search.create({
             type: 'customrecord_item',
             filters: [['custrecord_bso_item_sublist_link', 'anyof', bsoId]],
-            columns: ['internalid', 'custrecord_itemid'] // 🔁 23 = item reference
+            columns: ['internalid', 'custrecord_itemid']
         });
         lineSearch.run().each(result => {
             const lineId = result.getValue({ name: 'internalid' });
@@ -76,30 +76,30 @@ define(["require", "exports", "N/record", "N/cache", "N/log", "N/search", "N/for
                 log.debug('No schedule data for code', scheduleCode);
                 return true;
             }
-            let entries;
+            let parsed;
             try {
-                entries = JSON.parse(rawData);
+                parsed = JSON.parse(rawData);
             }
             catch (e) {
                 log.error('Failed to parse schedule data', e.message || e);
                 return true;
             }
+            const entries = parsed.scheduleData || [];
             if (!Array.isArray(entries) || entries.length === 0) {
                 log.debug('Empty entries array', `Item: ${itemId}`);
                 return true;
             }
-            var i = 0;
+            let i = 0;
             for (const entry of entries) {
                 try {
                     const sched = record.create({
                         type: 'customrecord_schedule',
                         isDynamic: true
                     });
-                    var jsDate = new Date(entry.date);
-                    // Parse it into a NetSuite DATE type (or DATETIME if your field requires it)
-                    var releaseDate = format.parse({
+                    const jsDate = new Date(entry.date);
+                    const releaseDate = format.parse({
                         value: jsDate,
-                        type: format.Type.DATE // or format.Type.DATETIME if needed
+                        type: format.Type.DATE
                     });
                     sched.setValue({ fieldId: 'name', value: `Schedule No-${i}-Item ID-${itemId}` });
                     sched.setValue({ fieldId: 'custrecord_schsublink', value: lineId });

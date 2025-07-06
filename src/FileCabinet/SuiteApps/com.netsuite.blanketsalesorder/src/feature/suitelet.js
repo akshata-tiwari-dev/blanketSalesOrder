@@ -1,5 +1,5 @@
 /**
- * @NApiVersion 2.1
+ * @NAPIVersion 2.1
  * @NScriptType Suitelet
  */
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
@@ -55,20 +55,72 @@ define(["require", "exports", "N/ui/serverWidget", "N/log", "N/cache"], function
     function onRequest(context) {
         const request = context.request;
         const response = context.response;
-        // 🟢 GET — render form
         if (request.method === 'GET') {
             const itemId = request.parameters.itemid || '';
             if (!itemId) {
                 response.write('Missing itemid parameter');
                 return;
             }
+            const reverseCache = cache.getCache({ name: 'item_schedule_latest', scope: cache.Scope.PUBLIC });
+            const latestScheduleCode = reverseCache.get({ key: `last-schedule-for-item-${itemId}`, loader: () => '' });
+            let cachedScheduleData = [];
+            let cachedStartDate = '';
+            let cachedEndDate = '';
+            let cachedQuantity = '';
+            let cachedReleaseFreq = '';
+            if (latestScheduleCode) {
+                const scheduleCache = cache.getCache({ name: 'item_schedule_cache', scope: cache.Scope.PUBLIC });
+                const dataStr = scheduleCache.get({ key: latestScheduleCode, loader: () => '' });
+                if (dataStr) {
+                    try {
+                        const parsed = JSON.parse(dataStr);
+                        if (Array.isArray(parsed.scheduleData)) {
+                            cachedScheduleData = parsed.scheduleData;
+                            cachedStartDate = parsed.startDate || '';
+                            cachedEndDate = parsed.endDate || '';
+                            cachedQuantity = parsed.quantity || '';
+                            cachedReleaseFreq = parsed.releaseFreq || '';
+                        }
+                    }
+                    catch (e) {
+                        log.error('Failed to parse cached schedule', e);
+                    }
+                }
+            }
+            else {
+                const timestamp = Date.now();
+                const newScheduleCode = `${itemId}-${timestamp}`;
+                const scheduleCache = cache.getCache({ name: 'item_schedule_cache', scope: cache.Scope.PUBLIC });
+                const defaultPayload = {
+                    scheduleData: [],
+                    startDate: '',
+                    endDate: '',
+                    quantity: '',
+                    releaseFreq: ''
+                };
+                scheduleCache.put({ key: newScheduleCode, value: JSON.stringify(defaultPayload), ttl: 3600 });
+                reverseCache.put({ key: `last-schedule-for-item-${itemId}`, value: newScheduleCode, ttl: 300 });
+                log.audit('Initialized empty schedule cache', newScheduleCode);
+            }
             const timestamp = Date.now();
             const scheduleCode = `${itemId}-${timestamp}`;
             const form = serverWidget_1.default.createForm({ title: 'Schedule Generator' });
             form.clientScriptModulePath = './clientscript.js';
-            form.addField({ id: 'custpage_start_date', label: 'Start Date', type: serverWidget_1.default.FieldType.DATE });
-            form.addField({ id: 'custpage_end_date', label: 'End Date', type: serverWidget_1.default.FieldType.DATE });
-            form.addField({ id: 'custpage_quantity', label: 'Quantity', type: serverWidget_1.default.FieldType.INTEGER });
+            form.addField({
+                id: 'custpage_start_date',
+                label: 'Start Date',
+                type: serverWidget_1.default.FieldType.DATE
+            }).defaultValue = cachedStartDate ? new Date(cachedStartDate) : null;
+            form.addField({
+                id: 'custpage_end_date',
+                label: 'End Date',
+                type: serverWidget_1.default.FieldType.DATE
+            }).defaultValue = cachedEndDate ? new Date(cachedEndDate) : null;
+            form.addField({
+                id: 'custpage_quantity',
+                label: 'Quantity',
+                type: serverWidget_1.default.FieldType.INTEGER
+            }).defaultValue = cachedQuantity;
             const freqField = form.addField({
                 id: 'custpage_release_freq',
                 label: 'Release Frequency',
@@ -81,13 +133,60 @@ define(["require", "exports", "N/ui/serverWidget", "N/log", "N/cache"], function
             freqField.addSelectOption({ value: 'a', text: 'Monthly' });
             freqField.addSelectOption({ value: 'd', text: 'Quarterly' });
             freqField.addSelectOption({ value: 'y', text: 'Yearly' });
+            if (cachedReleaseFreq)
+                freqField.defaultValue = cachedReleaseFreq;
             const sublist = form.addSublist({
                 id: 'custpage_schedule_sublist',
                 label: 'Generated Schedule',
                 type: serverWidget_1.default.SublistType.INLINEEDITOR
             });
-            sublist.addField({ id: 'custpage_release_date', label: 'Release Date', type: serverWidget_1.default.FieldType.DATE });
-            sublist.addField({ id: 'custpage_release_qty', label: 'Quantity', type: serverWidget_1.default.FieldType.INTEGER });
+            sublist.addField({
+                id: 'custpage_release_date',
+                label: 'Release Date',
+                type: serverWidget_1.default.FieldType.DATE
+            });
+            sublist.addField({
+                id: 'custpage_release_qty',
+                label: 'Quantity',
+                type: serverWidget_1.default.FieldType.INTEGER
+            });
+            if (cachedScheduleData.length > 0) {
+                cachedScheduleData.forEach((entry, index) => {
+                    if (index >= 1000)
+                        return;
+                    if (entry.date) {
+                        sublist.setSublistValue({
+                            id: 'custpage_schedule_date',
+                            line: index,
+                            value: entry.date.split('T')[0]
+                        });
+                    }
+                    if (entry.qty !== undefined) {
+                        sublist.setSublistValue({
+                            id: 'custpage_schedule_qty',
+                            line: index,
+                            value: entry.qty.toString()
+                        });
+                    }
+                });
+            }
+            const preloadScript = `
+            <script>
+                window.scheduleMeta = ${JSON.stringify({
+                startDate: cachedStartDate,
+                endDate: cachedEndDate,
+                quantity: cachedQuantity,
+                releaseFreq: cachedReleaseFreq
+            })};
+                window.scheduleLines = ${JSON.stringify(cachedScheduleData)};
+            </script>
+        `;
+            const preloadField = form.addField({
+                id: 'custpage_preload_data',
+                label: 'Preload Script',
+                type: serverWidget_1.default.FieldType.INLINEHTML
+            });
+            preloadField.defaultValue = preloadScript;
             const itemField = form.addField({ id: 'custpage_item_id', label: 'Item ID', type: serverWidget_1.default.FieldType.TEXT });
             itemField.defaultValue = itemId;
             itemField.updateDisplayType({ displayType: serverWidget_1.default.FieldDisplayType.HIDDEN });
@@ -95,7 +194,6 @@ define(["require", "exports", "N/ui/serverWidget", "N/log", "N/cache"], function
             schedCodeField.defaultValue = scheduleCode;
             schedCodeField.updateDisplayType({ displayType: serverWidget_1.default.FieldDisplayType.HIDDEN });
             form.addButton({ id: 'custpage_auto_generate', label: 'Auto Generate', functionName: 'autoGenerateSchedule' });
-            //form.addButton({ id: 'custpage_save_schedule', label: 'Save Schedule', functionName: 'saveScheduleToCache' });
             form.addSubmitButton({ label: 'Done' });
             response.writePage(form);
         }
@@ -105,58 +203,50 @@ define(["require", "exports", "N/ui/serverWidget", "N/log", "N/cache"], function
             try {
                 if (!request.body || typeof request.body !== 'string') {
                     log.error('Missing POST body', 'No data received.');
-                    response.write(JSON.stringify({
-                        success: false,
-                        message: 'No data received.'
-                    }));
+                    response.write(JSON.stringify({ success: false, message: 'No data received.' }));
                     return;
                 }
                 let scheduleCode;
                 let scheduleData;
                 let itemId;
+                let startDate = '';
+                let endDate = '';
+                let quantity = '';
+                let releaseFreq = '';
                 const body = request.body.trim();
                 if (body.startsWith('{')) {
                     const parsed = JSON.parse(body);
                     scheduleCode = parsed.scheduleCode;
                     scheduleData = parsed.scheduleData;
                     itemId = parsed.itemId || scheduleCode?.split('-')[0];
-                }
-                else if (body.includes('custpage_schedule_code=') && body.includes('custpage_schedule_sublistdata=')) {
-                    const params = {};
-                    body.split('&').forEach(p => {
-                        const [k, v] = p.split('=');
-                        if (k && v)
-                            params[decodeURIComponent(k)] = decodeURIComponent(v);
-                    });
-                    scheduleCode = params['custpage_schedule_code'];
-                    const rawData = params['custpage_schedule_sublistdata'];
-                    scheduleData = rawData ? parseScheduleList(rawData) : [];
-                    itemId = scheduleCode?.split('-')[0];
+                    startDate = parsed.startDate || '';
+                    endDate = parsed.endDate || '';
+                    quantity = parsed.quantity || '';
+                    releaseFreq = parsed.releaseFreq || '';
                 }
                 else {
                     throw new Error('Unsupported POST format.');
                 }
-                log.debug('ScheduleData received', scheduleData.length);
                 if (!scheduleCode || !Array.isArray(scheduleData) || !itemId) {
                     throw new Error('Missing or invalid scheduleCode or itemId');
                 }
+                const payload = {
+                    scheduleData,
+                    startDate,
+                    endDate,
+                    quantity,
+                    releaseFreq
+                };
                 const scheduleCache = cache.getCache({ name: 'item_schedule_cache', scope: cache.Scope.PUBLIC });
-                scheduleCache.put({ key: scheduleCode, value: JSON.stringify(scheduleData), ttl: 3600 });
+                scheduleCache.put({ key: scheduleCode, value: JSON.stringify(payload), ttl: 3600 });
                 const reverseCache = cache.getCache({ name: 'item_schedule_latest', scope: cache.Scope.PUBLIC });
                 reverseCache.put({ key: `last-schedule-for-item-${itemId}`, value: scheduleCode, ttl: 300 });
-                log.debug('Reverse cache entry stored', `Key: last-schedule-for-item-${itemId}, Value: ${scheduleCode}`);
                 log.audit('Schedule cached', `Item ID: ${itemId}, Schedule Code: ${scheduleCode}, Entries: ${scheduleData.length}`);
-                response.write(JSON.stringify({
-                    success: true,
-                    message: `Schedule saved under code: ${scheduleCode}`
-                }));
+                response.write(JSON.stringify({ success: true, message: `Schedule saved under code: ${scheduleCode}` }));
             }
             catch (e) {
                 log.error('POST handler error', e.message || e);
-                response.write(JSON.stringify({
-                    success: false,
-                    message: e.message || 'Unexpected error'
-                }));
+                response.write(JSON.stringify({ success: false, message: e.message || 'Unexpected error' }));
             }
         }
     }

@@ -7,6 +7,8 @@ import * as ui from 'N/ui/serverWidget';
 import * as search from 'N/search';
 import * as task from 'N/task';
 import * as log from 'N/log';
+import * as format from 'N/format';
+
 
 function formatDate(date: Date): string {
     return (date.getMonth() + 1) + '/' + date.getDate() + '/' + date.getFullYear();
@@ -53,13 +55,28 @@ export const onRequest: EntryPoints.Suitelet.onRequest = (context) => {
     sublist.addField({ id: 'trandate', type: ui.FieldType.DATE, label: 'Date' });
 
     const today = new Date();
-    const formattedToday = formatDate(today);
+
+    const nsToday = format.format({
+        value: today,
+        type: format.Type.DATE
+    });
+
+    const nsTodayWithTime = format.format({
+        value: today,
+        type: format.Type.DATETIME
+    });
+
+    log.debug('NetSuite Today (formatted)', nsTodayWithTime);
 
     try {
         const soSearch = search.create({
             type: search.Type.SALES_ORDER,
             filters: [
-                ['trandate', 'on', formattedToday],
+                // ['trandate', 'on', formattedToday],
+                // 'AND',
+                ['trandate', 'onorafter', nsToday],
+                'AND',
+                ['trandate', 'onorbefore', nsToday],
                 'AND',
                 ['mainline', 'is', 'T'],
                 // Optional: add [

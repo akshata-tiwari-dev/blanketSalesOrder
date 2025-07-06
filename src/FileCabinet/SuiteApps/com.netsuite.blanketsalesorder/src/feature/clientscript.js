@@ -30,9 +30,46 @@ define(["require", "exports", "N/currentRecord"], function (require, exports, cu
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.saveRecord = exports.saveScheduleToCache = exports.autoGenerateSchedule = exports.pageInit = void 0;
     currentRecord = __importStar(currentRecord);
-    function pageInit(context) { }
+    // ✅ Global state
+    let window, isGenerated = false;
+    function pageInit(context) {
+        try {
+            const rec = currentRecord.get();
+            // Preload meta fields
+            if (window.scheduleMeta) {
+                const meta = window.scheduleMeta;
+                if (meta.startDate)
+                    rec.setValue({ fieldId: 'custpage_start_date', value: meta.startDate });
+                if (meta.endDate)
+                    rec.setValue({ fieldId: 'custpage_end_date', value: meta.endDate });
+                if (meta.quantity)
+                    rec.setValue({ fieldId: 'custpage_quantity', value: parseInt(meta.quantity, 10) });
+                if (meta.releaseFreq)
+                    rec.setValue({ fieldId: 'custpage_release_freq', value: meta.releaseFreq });
+            }
+            // Preload sublist entries
+            const sublistId = 'custpage_schedule_sublist';
+            if (Array.isArray(window.scheduleLines) && window.scheduleLines.length > 0) {
+                window.scheduleLines.forEach((entry) => {
+                    if (!entry?.date || !entry?.qty)
+                        return;
+                    rec.selectNewLine({ sublistId });
+                    rec.setCurrentSublistValue({ sublistId, fieldId: 'custpage_release_date', value: entry.date });
+                    rec.setCurrentSublistValue({ sublistId, fieldId: 'custpage_release_qty', value: entry.qty });
+                    rec.commitLine({ sublistId });
+                });
+                // ✅ Mark as already generated
+                window.isGenerated = true;
+            }
+            else {
+                window.isGenerated = false;
+            }
+        }
+        catch (e) {
+            console.error('Preload failed:', e.message || e);
+        }
+    }
     exports.pageInit = pageInit;
-    let isGenerated = false; // Prevent multiple clicks
     function autoGenerateSchedule() {
         if (isGenerated) {
             alert('Schedule has already been auto-generated.');
@@ -77,7 +114,6 @@ define(["require", "exports", "N/currentRecord"], function (require, exports, cu
             return;
         }
         const remainingQty = qty - existingTotal;
-        // Determine start date: after last manual release, or use original start date
         let start = latestDate ? new Date(latestDate.getTime() + msPerDay) : new Date(sd);
         const totalDays = Math.floor((end.getTime() - start.getTime()) / msPerDay);
         if (totalDays <= 0) {
@@ -106,7 +142,7 @@ define(["require", "exports", "N/currentRecord"], function (require, exports, cu
             });
             rec.commitLine({ sublistId });
         }
-        isGenerated = true; // Lock further generation
+        isGenerated = true;
     }
     exports.autoGenerateSchedule = autoGenerateSchedule;
     function saveScheduleToCache() {
@@ -136,12 +172,19 @@ define(["require", "exports", "N/currentRecord"], function (require, exports, cu
                 alert('Missing required data.');
                 return;
             }
-            // ✅ POST to RESTlet or Suitelet to cache on server
             const scriptUrl = '/app/site/hosting/scriptlet.nl?script=152&deploy=1';
             fetch(scriptUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ itemId, scheduleCode, scheduleData })
+                body: JSON.stringify({
+                    itemId,
+                    scheduleCode,
+                    scheduleData,
+                    startDate: rec.getValue({ fieldId: 'custpage_start_date' }),
+                    endDate: rec.getValue({ fieldId: 'custpage_end_date' }),
+                    quantity: rec.getValue({ fieldId: 'custpage_quantity' }),
+                    releaseFreq: rec.getValue({ fieldId: 'custpage_release_freq' })
+                })
             })
                 .then(response => response.json())
                 .then(result => {
@@ -161,7 +204,37 @@ define(["require", "exports", "N/currentRecord"], function (require, exports, cu
     }
     exports.saveScheduleToCache = saveScheduleToCache;
     function saveRecord(context) {
-        return saveScheduleToCache();
+        const currentRecord = context.currentRecord;
+        // 🔐 Commit any unsaved sublist line
+        try {
+            currentRecord.commitLine({ sublistId: 'custpage_schedule_sublist' });
+        }
+        catch (e) {
+            console.log('No active line to commit or already committed.');
+        }
+        const totalRows = currentRecord.getLineCount({
+            sublistId: 'custpage_schedule_sublist'
+        });
+        let totalQty = 0;
+        for (let i = 0; i < totalRows; i++) {
+            const rawQty = currentRecord.getSublistValue({
+                sublistId: 'custpage_schedule_sublist',
+                fieldId: 'custpage_release_qty',
+                line: i
+            });
+            const qty = parseInt(String(rawQty), 10) || 0;
+            totalQty += qty;
+        }
+        const inputQty = parseInt(String(currentRecord.getValue({
+            fieldId: 'custpage_quantity'
+        })), 10) || 0;
+        if (totalQty !== inputQty) {
+            alert(`❌ Total scheduled quantity (${totalQty}) must exactly match the entered quantity (${inputQty}).`);
+            return false;
+        }
+        // Save draft to cache (always)
+        saveScheduleToCache();
+        return true;
     }
     exports.saveRecord = saveRecord;
 });

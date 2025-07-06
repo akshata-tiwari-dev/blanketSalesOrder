@@ -9,6 +9,7 @@ import * as cache from 'N/cache';
 import * as log from 'N/log';
 import * as search from 'N/search';
 import * as format from 'N/format';
+
 export const afterSubmit: EntryPoints.UserEvent.afterSubmit = (context) => {
     if (context.type === context.UserEventType.DELETE) return;
 
@@ -25,11 +26,11 @@ export const afterSubmit: EntryPoints.UserEvent.afterSubmit = (context) => {
         scope: cache.Scope.PUBLIC
     });
 
-    // 🔍 Search for all item line records linked to this BSO
+    // :mag: Search for all item line records linked to this BSO
     const lineSearch = search.create({
-        type: 'customrecord_item', // 🔁 Your actual item line record type
-        filters: [['custrecord_bso_item_sublist_link', 'anyof', bsoId]], // 🔁 field linking to BSO
-        columns: ['internalid', 'custrecord_itemid'] // 🔁 23 = item reference
+        type: 'customrecord_item', // Replace with your actual item line record type
+        filters: [['custrecord_bso_item_sublist_link', 'anyof', bsoId]],
+        columns: ['internalid', 'custrecord_itemid']
     });
 
     lineSearch.run().each(result => {
@@ -61,34 +62,34 @@ export const afterSubmit: EntryPoints.UserEvent.afterSubmit = (context) => {
             return true;
         }
 
-        let entries;
+        let parsed;
         try {
-            entries = JSON.parse(rawData);
+            parsed = JSON.parse(rawData);
         } catch (e: any) {
             log.error('Failed to parse schedule data', e.message || e);
             return true;
         }
 
+        const entries = parsed.scheduleData || [];
         if (!Array.isArray(entries) || entries.length === 0) {
             log.debug('Empty entries array', `Item: ${itemId}`);
             return true;
         }
-var i=0;
-        for (const entry of entries) {
 
+        let i = 0;
+        for (const entry of entries) {
             try {
                 const sched = record.create({
                     type: 'customrecord_schedule',
                     isDynamic: true
                 });
 
-                var jsDate = new Date(entry.date);
-
-                // Parse it into a NetSuite DATE type (or DATETIME if your field requires it)
-                var releaseDate = format.parse({
+                const jsDate = new Date(entry.date);
+                const releaseDate = format.parse({
                     value: jsDate,
-                    type: format.Type.DATE // or format.Type.DATETIME if needed
+                    type: format.Type.DATE
                 });
+
                 sched.setValue({ fieldId: 'name', value: `Schedule No-${i}-Item ID-${itemId}` });
                 sched.setValue({ fieldId: 'custrecord_schsublink', value: lineId });
                 sched.setValue({ fieldId: 'custrecordstdate', value: releaseDate });
@@ -105,3 +106,9 @@ var i=0;
         return true;
     });
 };
+
+
+
+
+
+

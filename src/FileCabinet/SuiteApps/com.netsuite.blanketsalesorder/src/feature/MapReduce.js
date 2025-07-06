@@ -61,7 +61,7 @@ define(["require", "exports", "N/query", "N/log", "N/record"], function (require
             log.audit('SuiteQL Result Count', results.length);
             if (results.length > 0) {
                 log.debug('First Result Sample', JSON.stringify(results[0]));
-                return results.map(result => JSON.stringify(result)); // ✅ Keep for compatibility
+                return results.map(result => JSON.stringify(result));
             }
             else {
                 log.audit('No Results Found', 'SuiteQL returned 0 rows');
