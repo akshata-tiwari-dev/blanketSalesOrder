@@ -36,6 +36,7 @@ export function onRequest(context: EntryPoints.Suitelet.onRequestContext) {
 
     if (request.method === 'GET') {
         const itemId = request.parameters.itemid || '';
+
         if (!itemId) {
             response.write('Missing itemid parameter');
             return;
