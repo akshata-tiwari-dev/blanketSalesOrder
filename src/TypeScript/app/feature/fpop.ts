@@ -3,11 +3,13 @@
  * @NScriptType ClientScript
  */
 
-import { ClientScript } from 'N/types';
+import { EntryPoints } from 'N/types';
+
 import * as currentRecord from 'N/currentRecord';
 declare function nlExtOpenWindow(url: string, name: string, width: number, height: number): void;
 
-export const fieldChanged: ClientScript['fieldChanged'] = (context) => {
+export const fieldChanged: EntryPoints.Client.fieldChanged = (context) => {
+
     const record = currentRecord.get();
     const itemId = context.currentRecord.getCurrentSublistValue({
         sublistId: 'recmachcustrecord_bso_item_sublist_link',

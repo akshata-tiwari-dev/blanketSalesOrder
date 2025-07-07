@@ -28,13 +28,14 @@ var __importStar = (this && this.__importStar) || function (mod) {
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
-define(["require", "exports", "N/ui/serverWidget", "N/log", "N/cache"], function (require, exports, serverWidget_1, log, cache) {
+define(["require", "exports", "N/ui/serverWidget", "N/log", "N/cache", "N/format"], function (require, exports, serverWidget_1, log, cache, format) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.onRequest = void 0;
     serverWidget_1 = __importDefault(serverWidget_1);
     log = __importStar(log);
     cache = __importStar(cache);
+    format = __importStar(format);
     // 🧩 Helper to parse delimited sublist data
     function parseScheduleList(sublistData) {
         const rows = sublistData.split('\x02');
@@ -76,6 +77,7 @@ define(["require", "exports", "N/ui/serverWidget", "N/log", "N/cache"], function
                         const parsed = JSON.parse(dataStr);
                         if (Array.isArray(parsed.scheduleData)) {
                             cachedScheduleData = parsed.scheduleData;
+                            log.debug(cachedScheduleData);
                             cachedStartDate = parsed.startDate || '';
                             cachedEndDate = parsed.endDate || '';
                             cachedQuantity = parsed.quantity || '';
@@ -102,8 +104,6 @@ define(["require", "exports", "N/ui/serverWidget", "N/log", "N/cache"], function
                 reverseCache.put({ key: `last-schedule-for-item-${itemId}`, value: newScheduleCode, ttl: 300 });
                 log.audit('Initialized empty schedule cache', newScheduleCode);
             }
-            const timestamp = Date.now();
-            const scheduleCode = `${itemId}-${timestamp}`;
             const form = serverWidget_1.default.createForm({ title: 'Schedule Generator' });
             form.clientScriptModulePath = './clientscript.js';
             form.addField({
@@ -150,47 +150,45 @@ define(["require", "exports", "N/ui/serverWidget", "N/log", "N/cache"], function
                 label: 'Quantity',
                 type: serverWidget_1.default.FieldType.INTEGER
             });
-            if (cachedScheduleData.length > 0) {
-                cachedScheduleData.forEach((entry, index) => {
-                    if (index >= 1000)
-                        return;
-                    if (entry.date) {
-                        sublist.setSublistValue({
-                            id: 'custpage_schedule_date',
-                            line: index,
-                            value: entry.date.split('T')[0]
-                        });
-                    }
-                    if (entry.qty !== undefined) {
-                        sublist.setSublistValue({
-                            id: 'custpage_schedule_qty',
-                            line: index,
-                            value: entry.qty.toString()
-                        });
-                    }
-                });
+            // Fill sublist with cached entries
+            let line = 0;
+            for (const entry of cachedScheduleData) {
+                try {
+                    const isoDate = new Date(entry.date);
+                    const releaseDate = format.format({
+                        value: isoDate,
+                        type: format.Type.DATE
+                    });
+                    log.debug('Formatted Release Date', releaseDate);
+                    sublist.setSublistValue({
+                        id: 'custpage_release_date',
+                        line,
+                        value: releaseDate
+                    });
+                    sublist.setSublistValue({
+                        id: 'custpage_release_qty',
+                        line,
+                        value: entry.qty
+                    });
+                    line++;
+                }
+                catch (e) {
+                    log.error('Failed to populate sublist', e.message || e);
+                }
             }
-            const preloadScript = `
-            <script>
-                window.scheduleMeta = ${JSON.stringify({
-                startDate: cachedStartDate,
-                endDate: cachedEndDate,
-                quantity: cachedQuantity,
-                releaseFreq: cachedReleaseFreq
-            })};
-                window.scheduleLines = ${JSON.stringify(cachedScheduleData)};
-            </script>
-        `;
-            const preloadField = form.addField({
-                id: 'custpage_preload_data',
-                label: 'Preload Script',
-                type: serverWidget_1.default.FieldType.INLINEHTML
+            const scheduleCode = `${itemId}-${Date.now()}`;
+            const itemField = form.addField({
+                id: 'custpage_item_id',
+                label: 'Item ID',
+                type: serverWidget_1.default.FieldType.TEXT
             });
-            preloadField.defaultValue = preloadScript;
-            const itemField = form.addField({ id: 'custpage_item_id', label: 'Item ID', type: serverWidget_1.default.FieldType.TEXT });
             itemField.defaultValue = itemId;
             itemField.updateDisplayType({ displayType: serverWidget_1.default.FieldDisplayType.HIDDEN });
-            const schedCodeField = form.addField({ id: 'custpage_schedule_code', label: 'Schedule Code', type: serverWidget_1.default.FieldType.TEXT });
+            const schedCodeField = form.addField({
+                id: 'custpage_schedule_code',
+                label: 'Schedule Code',
+                type: serverWidget_1.default.FieldType.TEXT
+            });
             schedCodeField.defaultValue = scheduleCode;
             schedCodeField.updateDisplayType({ displayType: serverWidget_1.default.FieldDisplayType.HIDDEN });
             form.addButton({ id: 'custpage_auto_generate', label: 'Auto Generate', functionName: 'autoGenerateSchedule' });

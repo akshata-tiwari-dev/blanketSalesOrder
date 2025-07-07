@@ -1,5 +1,5 @@
 /**
- * @NApiVersion 2.1
+ * @NAPIVersion 2.1
  * @NScriptType UserEventScript
  */
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
@@ -62,7 +62,7 @@ define(["require", "exports", "N/record", "N/cache", "N/log", "N/search", "N/for
             }
             const scheduleCode = reverseCache.get({
                 key: `last-schedule-for-item-${itemId}`,
-                loader: () => null
+                loader: () => ''
             });
             if (!scheduleCode) {
                 log.debug('No schedule code in cache', `Item ${itemId}`);
@@ -70,7 +70,7 @@ define(["require", "exports", "N/record", "N/cache", "N/log", "N/search", "N/for
             }
             const rawData = schedCache.get({
                 key: scheduleCode,
-                loader: () => null
+                loader: () => ''
             });
             if (!rawData) {
                 log.debug('No schedule data for code', scheduleCode);

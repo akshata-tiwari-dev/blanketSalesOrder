@@ -31,5 +31,3 @@ export function triggerMapReduce() {
             alert(`Error triggering Map/Reduce: ${error.message}`);
         });
 }
-
-

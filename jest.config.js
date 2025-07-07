@@ -1,5 +1,7 @@
 module.exports = {
     // Indicates whether the coverage information should be collected while executing the test
+
+
     collectCoverage: false,
     collectCoverageFrom: ['./src/TypeScript/**/*.ts'],
     coverageReporters: ['lcov'],

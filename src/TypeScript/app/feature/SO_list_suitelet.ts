@@ -27,8 +27,13 @@ export const onRequest: EntryPoints.Suitelet.onRequest = (context) => {
             });
             const taskId = mrTask.submit();
             log.audit('MR Triggered via Suitelet', `Task ID: ${taskId}`);
+
+            // response.setHeader({ name: 'Content-Type', value: 'application/json' });
+            // response.write(JSON.stringify({ success: true, taskId }));
         } catch (e: any) {
             log.error('Error triggering MR', e.message);
+            // response.setHeader({ name: 'Content-Type', value: 'application/json' });
+            // response.write(JSON.stringify({ success: false, message: e.message }));
         }
 
         response.write('MR Triggered');

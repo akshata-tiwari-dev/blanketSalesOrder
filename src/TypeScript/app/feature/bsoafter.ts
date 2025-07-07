@@ -1,5 +1,5 @@
 /**
- * @NApiVersion 2.1
+ * @NAPIVersion 2.1
  * @NScriptType UserEventScript
  */
 
@@ -44,8 +44,9 @@ export const afterSubmit: EntryPoints.UserEvent.afterSubmit = (context) => {
 
         const scheduleCode = reverseCache.get({
             key: `last-schedule-for-item-${itemId}`,
-            loader: () => null
+            loader: () => ''
         });
+
 
         if (!scheduleCode) {
             log.debug('No schedule code in cache', `Item ${itemId}`);
@@ -54,8 +55,9 @@ export const afterSubmit: EntryPoints.UserEvent.afterSubmit = (context) => {
 
         const rawData = schedCache.get({
             key: scheduleCode,
-            loader: () => null
+            loader: () => ''
         });
+
 
         if (!rawData) {
             log.debug('No schedule data for code', scheduleCode);
@@ -106,9 +108,3 @@ export const afterSubmit: EntryPoints.UserEvent.afterSubmit = (context) => {
         return true;
     });
 };
-
-
-
-
-
-

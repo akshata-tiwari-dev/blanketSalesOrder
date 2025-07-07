@@ -30,8 +30,7 @@ define(["require", "exports", "N/currentRecord"], function (require, exports, cu
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.saveRecord = exports.saveScheduleToCache = exports.autoGenerateSchedule = exports.pageInit = void 0;
     currentRecord = __importStar(currentRecord);
-    // ✅ Global state
-    let window, isGenerated = false;
+    window.isGenerated = false;
     function pageInit(context) {
         try {
             const rec = currentRecord.get();
@@ -71,14 +70,15 @@ define(["require", "exports", "N/currentRecord"], function (require, exports, cu
     }
     exports.pageInit = pageInit;
     function autoGenerateSchedule() {
-        if (isGenerated) {
+        if (window.isGenerated) {
             alert('Schedule has already been auto-generated.');
             return;
         }
         const rec = currentRecord.get();
         const sd = rec.getValue({ fieldId: 'custpage_start_date' });
         const ed = rec.getValue({ fieldId: 'custpage_end_date' });
-        const qty = parseInt(rec.getValue({ fieldId: 'custpage_quantity' }), 10);
+        // const qty = parseInt(rec.getValue({ fieldId: 'custpage_quantity' }) as string, 10);
+        const qty = parseInt(String(rec.getValue({ fieldId: 'custpage_quantity' })), 10) || 0;
         const freq = rec.getValue({ fieldId: 'custpage_release_freq' });
         const sublistId = 'custpage_schedule_sublist';
         if (!sd || !ed || isNaN(qty) || !freq) {
@@ -142,7 +142,7 @@ define(["require", "exports", "N/currentRecord"], function (require, exports, cu
             });
             rec.commitLine({ sublistId });
         }
-        isGenerated = true;
+        window.isGenerated = true;
     }
     exports.autoGenerateSchedule = autoGenerateSchedule;
     function saveScheduleToCache() {
@@ -160,11 +160,12 @@ define(["require", "exports", "N/currentRecord"], function (require, exports, cu
                     fieldId: 'custpage_release_date',
                     line: i
                 });
-                const qty = parseInt(rec.getSublistValue({
+                const rawQty = rec.getSublistValue({
                     sublistId: 'custpage_schedule_sublist',
                     fieldId: 'custpage_release_qty',
                     line: i
-                }), 10);
+                });
+                const qty = parseInt(String(rawQty), 10) || 0;
                 if (date && qty)
                     scheduleData.push({ date, qty });
             }
@@ -190,7 +191,7 @@ define(["require", "exports", "N/currentRecord"], function (require, exports, cu
                 .then(result => {
                 if (result.success) {
                     alert('Schedule cached successfully.');
-                    window.close();
+                    //window.close();
                 }
                 else {
                     alert('Server error: ' + (result.message || 'Unknown error'));
@@ -205,13 +206,24 @@ define(["require", "exports", "N/currentRecord"], function (require, exports, cu
     exports.saveScheduleToCache = saveScheduleToCache;
     function saveRecord(context) {
         const currentRecord = context.currentRecord;
-        // 🔐 Commit any unsaved sublist line
-        try {
+        const date = currentRecord.getCurrentSublistValue({
+            sublistId: 'custpage_schedule_sublist',
+            fieldId: 'custpage_release_date'
+        });
+        const qty = currentRecord.getCurrentSublistValue({
+            sublistId: 'custpage_schedule_sublist',
+            fieldId: 'custpage_release_qty'
+        });
+        if (date || qty) {
             currentRecord.commitLine({ sublistId: 'custpage_schedule_sublist' });
         }
-        catch (e) {
-            console.log('No active line to commit or already committed.');
-        }
+        // 🔐 Commit any unsaved sublist line
+        /* try {
+             currentRecord.commitLine({ sublistId: 'custpage_schedule_sublist' });
+         } catch (e) {
+             console.log('No active line to commit or already committed.');
+         }
+     */
         const totalRows = currentRecord.getLineCount({
             sublistId: 'custpage_schedule_sublist'
         });
