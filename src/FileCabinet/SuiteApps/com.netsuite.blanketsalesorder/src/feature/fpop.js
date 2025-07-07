@@ -28,28 +28,50 @@ var __importStar = (this && this.__importStar) || function (mod) {
 define(["require", "exports", "N/currentRecord"], function (require, exports, currentRecord) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
-    exports.fieldChanged = void 0;
+    exports.pageInit = exports.fieldChanged = void 0;
     currentRecord = __importStar(currentRecord);
     const fieldChanged = (context) => {
-        const record = currentRecord.get();
-        const itemId = context.currentRecord.getCurrentSublistValue({
+        if (context.sublistId !== 'recmachcustrecord_bso_item_sublist_link')
+            return;
+        const rec = context.currentRecord;
+        const bsoid = rec.id;
+        const itemId = rec.getCurrentSublistValue({
             sublistId: 'recmachcustrecord_bso_item_sublist_link',
             fieldId: 'custrecord_itemid'
         });
-        const isChecked = context.currentRecord.getCurrentSublistValue({
+        const isChecked = rec.getCurrentSublistValue({
             sublistId: 'recmachcustrecord_bso_item_sublist_link',
             fieldId: 'custrecord_gensch'
         });
-        //  const suiteletUrl = `/app/site/hosting/scriptlet.nl?script=123&deploy=1&itemid=${itemId}`;
-        if (isChecked) {
-            if (!itemId) {
-                alert('Please save the record before creating a schedule.');
-                return;
-            }
-            const url = `/app/site/hosting/scriptlet.nl?script=152&deploy=1&itemid=${itemId}`;
-            alert(url);
+        if (isChecked && itemId) {
+            const url = `/app/site/hosting/scriptlet.nl?script=152&deploy=1&itemid=${itemId}&bsoId=${bsoid}`;
             nlExtOpenWindow(encodeURI(url), 'EditSchedule', 800, 600);
         }
     };
     exports.fieldChanged = fieldChanged;
+    const pageInit = (context) => {
+        const rec = currentRecord.get();
+        const lineCount = rec.getLineCount({
+            sublistId: 'recmachcustrecord_bso_item_sublist_link'
+        });
+        for (let i = 0; i < lineCount; i++) {
+            const isChecked = rec.getSublistValue({
+                sublistId: 'recmachcustrecord_bso_item_sublist_link',
+                fieldId: 'custrecord_gensch',
+                line: i
+            });
+            if (isChecked) {
+                const itemId = rec.getSublistValue({
+                    sublistId: 'recmachcustrecord_bso_item_sublist_link',
+                    fieldId: 'custrecord_itemid',
+                    line: i
+                });
+                const bsoId = rec.id;
+                const url = `/app/site/hosting/scriptlet.nl?script=152&deploy=1&itemid=${itemId}&bsoId=${bsoId}`;
+                nlExtOpenWindow(encodeURI(url), 'EditSchedule', 800, 600);
+                break; // only open once
+            }
+        }
+    };
+    exports.pageInit = pageInit;
 });

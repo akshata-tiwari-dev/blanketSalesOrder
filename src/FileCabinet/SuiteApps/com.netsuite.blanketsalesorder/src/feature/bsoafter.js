@@ -1,5 +1,5 @@
 /**
- * @NAPIVersion 2.1
+ * @NApiVersion 2.1
  * @NScriptType UserEventScript
  */
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
@@ -47,7 +47,7 @@ define(["require", "exports", "N/record", "N/cache", "N/log", "N/search", "N/for
             name: 'item_schedule_cache',
             scope: cache.Scope.PUBLIC
         });
-        // :mag: Search for all item line records linked to this BSO
+        // 🔍 Search for all item line records linked to this BSO
         const lineSearch = search.create({
             type: 'customrecord_item',
             filters: [['custrecord_bso_item_sublist_link', 'anyof', bsoId]],
@@ -62,7 +62,7 @@ define(["require", "exports", "N/record", "N/cache", "N/log", "N/search", "N/for
             }
             const scheduleCode = reverseCache.get({
                 key: `last-schedule-for-item-${itemId}`,
-                loader: () => ''
+                loader: () => null
             });
             if (!scheduleCode) {
                 log.debug('No schedule code in cache', `Item ${itemId}`);
@@ -70,7 +70,7 @@ define(["require", "exports", "N/record", "N/cache", "N/log", "N/search", "N/for
             }
             const rawData = schedCache.get({
                 key: scheduleCode,
-                loader: () => ''
+                loader: () => null
             });
             if (!rawData) {
                 log.debug('No schedule data for code', scheduleCode);
@@ -84,13 +84,53 @@ define(["require", "exports", "N/record", "N/cache", "N/log", "N/search", "N/for
                 log.error('Failed to parse schedule data', e.message || e);
                 return true;
             }
-            const entries = parsed.scheduleData || [];
-            if (!Array.isArray(entries) || entries.length === 0) {
-                log.debug('Empty entries array', `Item: ${itemId}`);
-                return true;
+            const { scheduleData = [], startDate, endDate, quantity, releaseFreq } = parsed;
+            // ✅ Save base schedule metadata into the item line record
+            try {
+                const itemLine = record.load({
+                    type: 'customrecord_item',
+                    id: lineId,
+                    isDynamic: true
+                });
+                if (startDate) {
+                    itemLine.setValue({
+                        fieldId: 'custrecord_stdate',
+                        value: format.parse({
+                            value: new Date(startDate),
+                            type: format.Type.DATE
+                        })
+                    });
+                }
+                if (endDate) {
+                    itemLine.setValue({
+                        fieldId: 'custrecord_enddate',
+                        value: format.parse({
+                            value: new Date(endDate),
+                            type: format.Type.DATE
+                        })
+                    });
+                }
+                if (quantity) {
+                    itemLine.setValue({
+                        fieldId: 'custrecord_quantity',
+                        value: Number(quantity)
+                    });
+                }
+                if (releaseFreq) {
+                    itemLine.setValue({
+                        fieldId: 'custrecord_freq',
+                        value: releaseFreq
+                    });
+                }
+                itemLine.save();
+                log.debug('Updated item line metadata', { lineId, itemId });
             }
+            catch (e) {
+                log.error('Failed to update item line metadata', e.message || e);
+            }
+            // ✅ Now save each schedule entry to child table
             let i = 0;
-            for (const entry of entries) {
+            for (const entry of scheduleData) {
                 try {
                     const sched = record.create({
                         type: 'customrecord_schedule',
@@ -102,7 +142,7 @@ define(["require", "exports", "N/record", "N/cache", "N/log", "N/search", "N/for
                         type: format.Type.DATE
                     });
                     sched.setValue({ fieldId: 'name', value: `Schedule No-${i}-Item ID-${itemId}` });
-                    sched.setValue({ fieldId: 'custrecord_schsublink', value: lineId });
+                    sched.setValue({ fieldId: 'custrecord_schsublink', value: lineId }); // link to item line
                     sched.setValue({ fieldId: 'custrecordstdate', value: releaseDate });
                     sched.setValue({ fieldId: 'custrecordqtyy', value: entry.qty });
                     const schedId = sched.save();

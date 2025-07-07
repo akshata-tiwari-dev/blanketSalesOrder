@@ -28,7 +28,7 @@ var __importStar = (this && this.__importStar) || function (mod) {
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
-define(["require", "exports", "N/ui/serverWidget", "N/log", "N/cache", "N/format"], function (require, exports, serverWidget_1, log, cache, format) {
+define(["require", "exports", "N/ui/serverWidget", "N/log", "N/cache", "N/format", "N", "N/search"], function (require, exports, serverWidget_1, log, cache, format, N_1, search) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.onRequest = void 0;
@@ -36,6 +36,7 @@ define(["require", "exports", "N/ui/serverWidget", "N/log", "N/cache", "N/format
     log = __importStar(log);
     cache = __importStar(cache);
     format = __importStar(format);
+    search = __importStar(search);
     // 🧩 Helper to parse delimited sublist data
     function parseScheduleList(sublistData) {
         const rows = sublistData.split('\x02');
@@ -56,54 +57,106 @@ define(["require", "exports", "N/ui/serverWidget", "N/log", "N/cache", "N/format
     function onRequest(context) {
         const request = context.request;
         const response = context.response;
+        const rec = N_1.currentRecord.get();
         if (request.method === 'GET') {
             const itemId = request.parameters.itemid || '';
+            const bsoId = request.parameters.bsoId || '';
             if (!itemId) {
                 response.write('Missing itemid parameter');
                 return;
             }
             const reverseCache = cache.getCache({ name: 'item_schedule_latest', scope: cache.Scope.PUBLIC });
-            const latestScheduleCode = reverseCache.get({ key: `last-schedule-for-item-${itemId}`, loader: () => '' });
+            const scheduleCache = cache.getCache({ name: 'item_schedule_cache', scope: cache.Scope.PUBLIC });
             let cachedScheduleData = [];
             let cachedStartDate = '';
             let cachedEndDate = '';
             let cachedQuantity = '';
             let cachedReleaseFreq = '';
-            if (latestScheduleCode) {
-                const scheduleCache = cache.getCache({ name: 'item_schedule_cache', scope: cache.Scope.PUBLIC });
-                const dataStr = scheduleCache.get({ key: latestScheduleCode, loader: () => '' });
-                if (dataStr) {
-                    try {
-                        const parsed = JSON.parse(dataStr);
-                        if (Array.isArray(parsed.scheduleData)) {
-                            cachedScheduleData = parsed.scheduleData;
-                            log.debug(cachedScheduleData);
+            let scheduleCode = '';
+            let rawData = null;
+            if (bsoId) {
+                // :large_green_circle: DB FETCH FROM BSO
+                log.debug('bso id is:', bsoId);
+                const sublistSearch = search.create({
+                    type: 'customrecord_item',
+                    filters: [
+                        ['custrecord_itemid', 'anyof', itemId],
+                        'AND',
+                        ['custrecord_bso_item_sublist_link', 'anyof', bsoId]
+                    ],
+                    columns: ['custrecord_stdate', 'custrecord_enddate', 'custrecord_quantity', 'custrecord_freq']
+                });
+                const sublistResult = sublistSearch.run().getRange({ start: 0, end: 1 })[0];
+                if (sublistResult) {
+                    cachedStartDate = sublistResult.getValue('custrecord_stdate');
+                    cachedEndDate = sublistResult.getValue('custrecord_enddate');
+                    cachedQuantity = sublistResult.getValue('custrecord_quantity');
+                    cachedReleaseFreq = sublistResult.getValue('custrecord_freq');
+                }
+                const scheduleSearch = search.create({
+                    type: 'customrecord_schedule',
+                    filters: [
+                        ['custrecord_schsublink.custrecord_itemid', 'anyof', itemId],
+                        'AND',
+                        ['custrecord_schsublink.custrecord_bso_item_sublist_link', 'anyof', bsoId]
+                    ],
+                    columns: ['custrecordstdate', 'custrecordqtyy']
+                });
+                const scheduleResults = scheduleSearch.run().getRange({ start: 0, end: 100 }) || [];
+                for (const row of scheduleResults) {
+                    cachedScheduleData.push({
+                        date: row.getValue('custrecordstdate'),
+                        qty: parseInt(row.getValue('custrecordqtyy'))
+                    });
+                }
+                scheduleCode = `${itemId}-${Date.now()}`;
+                const payload = JSON.stringify({
+                    scheduleData: cachedScheduleData,
+                    startDate: cachedStartDate,
+                    endDate: cachedEndDate,
+                    quantity: cachedQuantity,
+                    releaseFreq: cachedReleaseFreq
+                });
+                scheduleCache.put({ key: scheduleCode, value: payload, ttl: 3600 });
+                reverseCache.put({ key: `last-schedule-for-item-${itemId}`, value: scheduleCode, ttl: 300 });
+                rawData = payload;
+            }
+            else {
+                // :repeat: Try cache fallback
+                const latestScheduleCode = reverseCache.get({ key: `last-schedule-for-item-${itemId}`, loader: () => '' });
+                if (latestScheduleCode) {
+                    const cachedData = scheduleCache.get({ key: latestScheduleCode, loader: () => '' });
+                    if (cachedData) {
+                        try {
+                            const parsed = JSON.parse(cachedData);
+                            cachedScheduleData = parsed.scheduleData || [];
                             cachedStartDate = parsed.startDate || '';
                             cachedEndDate = parsed.endDate || '';
                             cachedQuantity = parsed.quantity || '';
                             cachedReleaseFreq = parsed.releaseFreq || '';
+                            scheduleCode = latestScheduleCode;
+                        }
+                        catch (e) {
+                            log.error('Failed to parse cached data', e);
                         }
                     }
-                    catch (e) {
-                        log.error('Failed to parse cached schedule', e);
-                    }
+                }
+                else {
+                    // :no_entry: No BSO, no cache — create empty payload
+                    scheduleCode = `${itemId}-${Date.now()}`;
+                    const payload = JSON.stringify({
+                        scheduleData: [],
+                        startDate: '',
+                        endDate: '',
+                        quantity: '',
+                        releaseFreq: ''
+                    });
+                    scheduleCache.put({ key: scheduleCode, value: payload, ttl: 3600 });
+                    reverseCache.put({ key: `last-schedule-for-item-${itemId}`, value: scheduleCode, ttl: 300 });
+                    log.audit('Initialized empty schedule cache', scheduleCode);
                 }
             }
-            else {
-                const timestamp = Date.now();
-                const newScheduleCode = `${itemId}-${timestamp}`;
-                const scheduleCache = cache.getCache({ name: 'item_schedule_cache', scope: cache.Scope.PUBLIC });
-                const defaultPayload = {
-                    scheduleData: [],
-                    startDate: '',
-                    endDate: '',
-                    quantity: '',
-                    releaseFreq: ''
-                };
-                scheduleCache.put({ key: newScheduleCode, value: JSON.stringify(defaultPayload), ttl: 3600 });
-                reverseCache.put({ key: `last-schedule-for-item-${itemId}`, value: newScheduleCode, ttl: 300 });
-                log.audit('Initialized empty schedule cache', newScheduleCode);
-            }
+            // :white_check_mark: Now build and return the form
             const form = serverWidget_1.default.createForm({ title: 'Schedule Generator' });
             form.clientScriptModulePath = './clientscript.js';
             form.addField({
@@ -150,20 +203,17 @@ define(["require", "exports", "N/ui/serverWidget", "N/log", "N/cache", "N/format
                 label: 'Quantity',
                 type: serverWidget_1.default.FieldType.INTEGER
             });
-            // Fill sublist with cached entries
             let line = 0;
             for (const entry of cachedScheduleData) {
                 try {
-                    const isoDate = new Date(entry.date);
-                    const releaseDate = format.format({
-                        value: isoDate,
+                    const formattedDate = format.format({
+                        value: new Date(entry.date),
                         type: format.Type.DATE
                     });
-                    log.debug('Formatted Release Date', releaseDate);
                     sublist.setSublistValue({
                         id: 'custpage_release_date',
                         line,
-                        value: releaseDate
+                        value: formattedDate
                     });
                     sublist.setSublistValue({
                         id: 'custpage_release_qty',
@@ -173,10 +223,10 @@ define(["require", "exports", "N/ui/serverWidget", "N/log", "N/cache", "N/format
                     line++;
                 }
                 catch (e) {
-                    log.error('Failed to populate sublist', e.message || e);
+                    log.error('Sublist render error', e.message || e);
                 }
             }
-            const scheduleCode = `${itemId}-${Date.now()}`;
+            scheduleCode = `${itemId}-${Date.now()}`;
             const itemField = form.addField({
                 id: 'custpage_item_id',
                 label: 'Item ID',
