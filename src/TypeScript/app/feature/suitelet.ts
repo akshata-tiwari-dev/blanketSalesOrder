@@ -12,10 +12,11 @@ import { EntryPoints } from 'N/types';
 import {currentRecord} from 'N';
 import * as search from 'N/search';
 
-// 🧩 Helper to parse delimited sublist data
+// Helper Function used to parse delimited sublist data stored in the payload during cache interaction(Optional -- can be used to extract scheduleData in array form)
+
 function parseScheduleList(sublistData: string): Array<{ date: string, qty: number }> {
     const rows = sublistData.split('\x02');
-    const schedule: Array<{ date: string, qty: number }> = [];
+    const scheduleDataInArray: Array<{ date: string, qty: number }> = [];
 
     for (let i = 0; i < rows.length - 1; i += 2) {
         const dateStr = rows[i]?.trim();
@@ -26,10 +27,10 @@ function parseScheduleList(sublistData: string): Array<{ date: string, qty: numb
         const qty = parseInt(qtyStr, 10);
         if (!isFinite(date.getTime()) || isNaN(qty)) continue;
 
-        schedule.push({ date: date.toISOString(), qty });
+        scheduleDataInArray.push({ date: date.toISOString(), qty });
     }
 
-    return schedule;
+    return  scheduleDataInArray;
 }
 
 export function onRequest(context: EntryPoints.Suitelet.onRequestContext) {
@@ -37,14 +38,19 @@ export function onRequest(context: EntryPoints.Suitelet.onRequestContext) {
     const response = context.response;
     const rec=currentRecord.get();
     if (request.method === 'GET') {
+        //getting itemlineid as itemId and bsorecordid as bsoId as parameters from the popup url
+
         const itemId = request.parameters.itemid || '';
         const bsoId = request.parameters.bsoId || '';
         if (!itemId) {
             response.write('Missing itemid parameter');
             return;
         }
-        const reverseCache = cache.getCache({ name: 'item_schedule_latest', scope: cache.Scope.PUBLIC });
-        const scheduleCache = cache.getCache({ name: 'item_schedule_cache', scope: cache.Scope.PUBLIC });
+        //cache interaction
+        const reverseCache = cache.getCache({ name: 'item_schedule_latest', scope: cache.Scope.PUBLIC });//to get scheduleCode from itemId
+        const scheduleCache = cache.getCache({ name: 'item_schedule_cache', scope: cache.Scope.PUBLIC });//to get scheduleData(Payload) from scheduleCode
+
+
         let cachedScheduleData: Array<{ date: string, qty: number }> = [];
         let cachedStartDate = '';
         let cachedEndDate = '';
@@ -52,10 +58,17 @@ export function onRequest(context: EntryPoints.Suitelet.onRequestContext) {
         let cachedReleaseFreq = '';
         let scheduleCode = '';
         let rawData: string | null = null;
+
+
+
+        //if bsoId is present (opening popup on an Item after submit) data is loaded from own record DB
         if (bsoId) {
-            // :large_green_circle: DB FETCH FROM BSO
+
             log.debug('bso id is:', bsoId);
-            const sublistSearch = search.create({
+
+
+            //performed saved search to get scheduled data from it's own DB
+            const sublistItemLineSearch = search.create({
                 type: 'customrecord_item',
                 filters: [
                     ['custrecord_itemid', 'anyof', itemId],
@@ -64,14 +77,19 @@ export function onRequest(context: EntryPoints.Suitelet.onRequestContext) {
                 ],
                 columns: ['custrecord_stdate', 'custrecord_enddate', 'custrecord_quantity', 'custrecord_freq']
             });
-            const sublistResult = sublistSearch.run().getRange({ start: 0, end: 1 })[0];
-            if (sublistResult) {
-                cachedStartDate = sublistResult.getValue('custrecord_stdate') as string;
-                cachedEndDate = sublistResult.getValue('custrecord_enddate') as string;
-                cachedQuantity = sublistResult.getValue('custrecord_quantity') as string;
-                cachedReleaseFreq = sublistResult.getValue('custrecord_freq') as string;
+
+            //Fetched data from a particular item line
+            const sublistItemLineResult = sublistItemLineSearch.run().getRange({ start: 0, end: 1 })[0];
+            if (sublistItemLineResult) {
+                cachedStartDate = sublistItemLineResult.getValue('custrecord_stdate') as string;
+                cachedEndDate = sublistItemLineResult.getValue('custrecord_enddate') as string;
+                cachedQuantity = sublistItemLineResult.getValue('custrecord_quantity') as string;
+                cachedReleaseFreq = sublistItemLineResult.getValue('custrecord_freq') as string;
             }
-            const scheduleSearch = search.create({
+
+
+            //Saved search to extract schedule linked to that itemLine
+            const scheduleDataSearch = search.create({
                 type: 'customrecord_schedule',
                 filters: [
                     ['custrecord_schsublink.custrecord_itemid', 'anyof', itemId],
@@ -80,14 +98,19 @@ export function onRequest(context: EntryPoints.Suitelet.onRequestContext) {
                 ],
                 columns: ['custrecordstdate', 'custrecordqtyy']
             });
-            const scheduleResults = scheduleSearch.run().getRange({ start: 0, end: 100 }) || [];
-            for (const row of scheduleResults) {
+
+
+            const scheduleDataResults = scheduleDataSearch.run().getRange({ start: 0, end: 100 }) || [];
+            for (const row of scheduleDataResults) {
                 cachedScheduleData.push({
                     date: row.getValue('custrecordstdate') as string,
                     qty: parseInt(row.getValue('custrecordqtyy') as string)
                 });
             }
+
             scheduleCode = `${itemId}-${Date.now()}`;
+
+            //creating a payload to cluster all data
             const payload = JSON.stringify({
                 scheduleData: cachedScheduleData,
                 startDate: cachedStartDate,
@@ -95,12 +118,17 @@ export function onRequest(context: EntryPoints.Suitelet.onRequestContext) {
                 quantity: cachedQuantity,
                 releaseFreq: cachedReleaseFreq
             });
+            //adding data into cache but it's optional as form next we fetch data from the DB not Web Cache
+
             scheduleCache.put({ key: scheduleCode, value: payload, ttl: 3600 });
             reverseCache.put({ key: `last-schedule-for-item-${itemId}`, value: scheduleCode, ttl: 300 });
             rawData = payload;
         } else {
-            // :repeat: Try cache fallback
+            // If bsoid is not present means we are opening popup during the BSO creation here the internalId of bso record is not exposed
+
+            //If user opens the popup again the previous saved data will be fetched
             const latestScheduleCode = reverseCache.get({ key: `last-schedule-for-item-${itemId}`, loader: () => '' }) as string;
+            //if user is opening a saved or already exiting  popup at that itemLine
             if (latestScheduleCode) {
                 const cachedData = scheduleCache.get({ key: latestScheduleCode, loader: () => '' }) as string;
                 if (cachedData) {
@@ -116,8 +144,10 @@ export function onRequest(context: EntryPoints.Suitelet.onRequestContext) {
                         log.error('Failed to parse cached data', e);
                     }
                 }
-            } else {
-                // :no_entry: No BSO, no cache — create empty payload
+            }
+            //if user is opening a fresh or new popup at that itemLine
+            else {
+
                 scheduleCode = `${itemId}-${Date.now()}`;
                 const payload = JSON.stringify({
                     scheduleData: [],
@@ -127,11 +157,14 @@ export function onRequest(context: EntryPoints.Suitelet.onRequestContext) {
                     releaseFreq: ''
                 });
                 scheduleCache.put({ key: scheduleCode, value: payload, ttl: 3600 });
+                //linking the scheduleCode with the itemId in the cache
                 reverseCache.put({ key: `last-schedule-for-item-${itemId}`, value: scheduleCode, ttl: 300 });
                 log.audit('Initialized empty schedule cache', scheduleCode);
             }
         }
-        // :white_check_mark: Now build and return the form
+
+        //Creation of Suitelet Form
+
         const form = serverWidget.createForm({ title: 'Schedule Generator' });
         form.clientScriptModulePath = './clientscript.js';
         form.addField({
