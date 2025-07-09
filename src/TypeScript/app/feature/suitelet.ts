@@ -166,6 +166,8 @@ export function onRequest(context: EntryPoints.Suitelet.onRequestContext) {
         //Creation of Suitelet Form
 
         const form = serverWidget.createForm({ title: 'Schedule Generator' });
+
+        //Linking suitelet with Clientscript which includes function(Auto
         form.clientScriptModulePath = './clientscript.js';
         form.addField({
             id: 'custpage_start_date',
@@ -177,6 +179,7 @@ export function onRequest(context: EntryPoints.Suitelet.onRequestContext) {
             label: 'End Date',
             type: serverWidget.FieldType.DATE
         }).defaultValue = cachedEndDate ? new Date(cachedEndDate) : null;
+
         form.addField({
             id: 'custpage_quantity',
             label: 'Quantity',
@@ -213,25 +216,39 @@ export function onRequest(context: EntryPoints.Suitelet.onRequestContext) {
         let line = 0;
         for (const entry of cachedScheduleData) {
             try {
+                // Convert to JS Date and add 1 day (86,400,000 ms)
+                const rawDate = new Date(entry.date);
+                if (isNaN(rawDate.getTime())) {
+                    log.error('Invalid date in entry:', entry.date);
+                    continue;
+                }
+
+                rawDate.setTime(rawDate.getTime() + 24 * 60 * 60 * 1000); // ✅ Add 1 day safely
+
                 const formattedDate = format.format({
-                    value: new Date(entry.date),
+                    value: rawDate,
                     type: format.Type.DATE
                 });
+
                 sublist.setSublistValue({
                     id: 'custpage_release_date',
                     line,
                     value: formattedDate
                 });
+
                 sublist.setSublistValue({
                     id: 'custpage_release_qty',
                     line,
                     value: entry.qty
                 });
+
                 line++;
             } catch (e: any) {
                 log.error('Sublist render error', e.message || e);
             }
         }
+
+
         scheduleCode = `${itemId}-${Date.now()}`;
         const itemField = form.addField({
             id: 'custpage_item_id',

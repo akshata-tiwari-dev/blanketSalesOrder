@@ -4,6 +4,7 @@
  */
 
 import * as currentRecord from 'N/currentRecord';
+import * as log from 'N/log';
 import dialog from 'N/ui/dialog';
 declare global {
     interface Window {
@@ -23,6 +24,8 @@ window.isGenerated = false;
 
 export function pageInit(context: any) {
     try {
+
+
         const rec = currentRecord.get();
 
         // Preload meta fields
@@ -155,7 +158,12 @@ export function autoGenerateSchedule() {
     });
     window.isGenerated = true;
 }
-
+function addOneDay(date: Date | string | null): string {
+    if (!date) return '';
+    const d = new Date(date);
+    d.setDate(d.getDate() + 1); // ✅ Add 1 day
+    return d.toISOString();     // Store as ISO if you're already using ISO format
+}
 export function saveScheduleToCache() {
     try {
         if (event) event.preventDefault();
@@ -164,22 +172,28 @@ export function saveScheduleToCache() {
         const itemId = rec.getValue({ fieldId: 'custpage_item_id' }) as string;
 
         const lines = rec.getLineCount({ sublistId: 'custpage_schedule_sublist' });
-        const scheduleData = [];
+        const scheduleData: Array<{ date: string, qty: number }> = [];
 
         for (let i = 0; i < lines; i++) {
-            const date = rec.getSublistValue({
+            const rawDate = rec.getSublistValue({
                 sublistId: 'custpage_schedule_sublist',
                 fieldId: 'custpage_release_date',
                 line: i
             });
-            const rawQty = rec.getSublistValue({
+
+            const qtyStr = rec.getSublistValue({
                 sublistId: 'custpage_schedule_sublist',
                 fieldId: 'custpage_release_qty',
                 line: i
             });
-            const qty = parseInt(String(rawQty), 10) || 0;
 
-            if (date && qty) scheduleData.push({ date, qty });
+            const date =rawDate;
+
+            const qty = parseInt(qtyStr, 10);
+
+            if (date && !isNaN(qty)) {
+                scheduleData.push({ date, qty });
+            }
         }
 
         if (!scheduleCode || !itemId || scheduleData.length === 0) {
@@ -188,6 +202,8 @@ export function saveScheduleToCache() {
         }
 
         const scriptUrl = '/app/site/hosting/scriptlet.nl?script=152&deploy=1';
+
+
 
         fetch(scriptUrl, {
             method: 'POST',
@@ -240,8 +256,8 @@ export function saveRecord(context: any): boolean {
 
     let totalQty = 0;
 
-    const startDate = new Date(currentRecord.getValue({ fieldId: 'custpage_start_date' }));
-    const endDate = new Date(currentRecord.getValue({ fieldId: 'custpage_end_date' }));
+    const startDate = (new Date(currentRecord.getValue({ fieldId: 'custpage_start_date' }));
+    const endDate = (new Date(currentRecord.getValue({ fieldId: 'custpage_end_date' }));
 
     for (let i = 0; i < totalRows; i++) {
         const releaseDateStr = currentRecord.getSublistValue({

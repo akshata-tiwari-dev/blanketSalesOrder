@@ -155,6 +155,13 @@ define(["require", "exports", "N/currentRecord", "N/ui/dialog"], function (requi
         window.isGenerated = true;
     }
     exports.autoGenerateSchedule = autoGenerateSchedule;
+    function addOneDay(date) {
+        if (!date)
+            return '';
+        const d = new Date(date);
+        d.setDate(d.getDate() + 1); // ✅ Add 1 day
+        return d.toISOString(); // Store as ISO if you're already using ISO format
+    }
     function saveScheduleToCache() {
         try {
             if (event)
@@ -165,19 +172,21 @@ define(["require", "exports", "N/currentRecord", "N/ui/dialog"], function (requi
             const lines = rec.getLineCount({ sublistId: 'custpage_schedule_sublist' });
             const scheduleData = [];
             for (let i = 0; i < lines; i++) {
-                const date = rec.getSublistValue({
+                const rawDate = rec.getSublistValue({
                     sublistId: 'custpage_schedule_sublist',
                     fieldId: 'custpage_release_date',
                     line: i
                 });
-                const rawQty = rec.getSublistValue({
+                const qtyStr = rec.getSublistValue({
                     sublistId: 'custpage_schedule_sublist',
                     fieldId: 'custpage_release_qty',
                     line: i
                 });
-                const qty = parseInt(String(rawQty), 10) || 0;
-                if (date && qty)
+                const date = rawDate;
+                const qty = parseInt(qtyStr, 10);
+                if (date && !isNaN(qty)) {
                     scheduleData.push({ date, qty });
+                }
             }
             if (!scheduleCode || !itemId || scheduleData.length === 0) {
                 alert('Missing required data.');
@@ -231,8 +240,8 @@ define(["require", "exports", "N/currentRecord", "N/ui/dialog"], function (requi
             sublistId: 'custpage_schedule_sublist'
         });
         let totalQty = 0;
-        const startDate = new Date(currentRecord.getValue({ fieldId: 'custpage_start_date' }));
-        const endDate = new Date(currentRecord.getValue({ fieldId: 'custpage_end_date' }));
+        const startDate = (new Date(currentRecord.getValue({ fieldId: 'custpage_start_date' })));
+        const endDate = (new Date(currentRecord.getValue({ fieldId: 'custpage_end_date' })));
         for (let i = 0; i < totalRows; i++) {
             const releaseDateStr = currentRecord.getSublistValue({
                 sublistId: 'custpage_schedule_sublist',

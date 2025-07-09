@@ -7,6 +7,8 @@ import { EntryPoints } from 'N/types';
 import * as query from 'N/query';
 import * as log from 'N/log';
 import * as record from 'N/record';
+import * as email from 'N/email';
+import * as runtime from 'N/runtime';
 
 function formatDate(d: Date): string {
     return d.toISOString().split('T')[0];
@@ -29,9 +31,10 @@ export const getInputData: EntryPoints.MapReduce.getInputData = () => {
                 bso.id AS bso_id,
                 bso.custrecord_customer AS customer_id
             FROM customrecord_schedule sch
-            JOIN customrecord_item items ON sch.custrecord_schsublink = items.id
-            JOIN customrecord_bso bso ON items.custrecord_bso_item_sublist_link = bso.id
+                     JOIN customrecord_item items ON sch.custrecord_schsublink = items.id
+                     JOIN customrecord_bso bso ON items.custrecord_bso_item_sublist_link = bso.id
             WHERE TO_CHAR(sch.custrecordstdate, 'YYYY-MM-DD') = '${isoToday}'
+              AND bso.custrecord127 = 1
         `;
 
         log.audit('Query Executed', queryString);
@@ -105,6 +108,27 @@ export const reduce: EntryPoints.MapReduce.reduce = (context) => {
         }
 
         const salesOrderId = salesOrder.save();
+        const customerRec = record.load({
+            type: record.Type.CUSTOMER,
+            id: customerId
+        });
+        const emailTo = customerRec.getValue({ fieldId: 'email' });
+
+        if (!emailTo) {
+            log.debug('No email found on customer', customerId);
+            return;
+        }
+
+
+        email.send({
+            author: 641,
+            recipients: emailTo as string,
+            subject: `Order Confirmation: ${salesOrderId}`,
+            body: `Dear customer, your  Sales Order ${salesOrderId} has been created successfully.`
+        });
+
+        log.audit('Email sent successfully', `To: ${emailTo}`);
+
         log.audit('Sales Order Created', `Customer: ${customerId}, ID: ${salesOrderId}`);
 
     } catch (e: any) {

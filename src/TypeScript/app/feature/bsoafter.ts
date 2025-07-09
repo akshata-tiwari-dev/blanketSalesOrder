@@ -81,24 +81,31 @@ export const afterSubmit: EntryPoints.UserEvent.afterSubmit = (context) => {
             });
 
             if (startDate) {
+                const start = new Date(startDate);
+                start.setTime(start.getTime() + 24* 60 * 60 * 1000);
+
                 itemLine.setValue({
                     fieldId: 'custrecord_stdate',
                     value: format.parse({
-                        value: new Date(startDate),
+                        value: start,
                         type: format.Type.DATE
                     })
                 });
             }
 
             if (endDate) {
+                const end = new Date(endDate);
+                end.setTime(end.getTime() +24* 60 * 60 * 1000);
+
                 itemLine.setValue({
                     fieldId: 'custrecord_enddate',
                     value: format.parse({
-                        value: new Date(endDate),
+                        value: end,
                         type: format.Type.DATE
                     })
                 });
             }
+
 
             if (quantity) {
                 itemLine.setValue({
@@ -120,7 +127,29 @@ export const afterSubmit: EntryPoints.UserEvent.afterSubmit = (context) => {
             log.error('Failed to update item line metadata', e.message || e);
         }
 
-        // ✅ Now save each schedule entry to child table
+        try {
+            const existingSchedules = search.create({
+                type: 'customrecord_schedule',
+                filters: [['custrecord_schsublink', 'anyof', lineId]],
+                columns: ['internalid']
+            });
+
+            existingSchedules.run().each(result => {
+                const schedId = result.getValue({ name: 'internalid' }) as string;
+                try {
+                    record.delete({
+                        type: 'customrecord_schedule',
+                        id: schedId
+                    });
+                    log.debug('Deleted existing schedule', `ID: ${schedId} for Item Line: ${lineId}`);
+                } catch (e: any) {
+                    log.error('Failed to delete existing schedule', `ID: ${schedId}, Error: ${e.message}`);
+                }
+                return true;
+            });
+        } catch (e: any) {
+            log.error('Error during schedule cleanup', e.message);
+        }
         let i = 0;
         for (const entry of scheduleData) {
             try {
@@ -130,6 +159,7 @@ export const afterSubmit: EntryPoints.UserEvent.afterSubmit = (context) => {
                 });
 
                 const jsDate = new Date(entry.date);
+                jsDate.setTime(jsDate.getTime() + 0);
                 const releaseDate = format.parse({
                     value: jsDate,
                     type: format.Type.DATE

@@ -168,6 +168,7 @@ define(["require", "exports", "N/ui/serverWidget", "N/log", "N/cache", "N/format
             }
             //Creation of Suitelet Form
             const form = serverWidget_1.default.createForm({ title: 'Schedule Generator' });
+            //Linking suitelet with Clientscript which includes function(Auto
             form.clientScriptModulePath = './clientscript.js';
             form.addField({
                 id: 'custpage_start_date',
@@ -216,8 +217,15 @@ define(["require", "exports", "N/ui/serverWidget", "N/log", "N/cache", "N/format
             let line = 0;
             for (const entry of cachedScheduleData) {
                 try {
+                    // Convert to JS Date and add 1 day (86,400,000 ms)
+                    const rawDate = new Date(entry.date);
+                    if (isNaN(rawDate.getTime())) {
+                        log.error('Invalid date in entry:', entry.date);
+                        continue;
+                    }
+                    rawDate.setTime(rawDate.getTime() + 24 * 60 * 60 * 1000); // ✅ Add 1 day safely
                     const formattedDate = format.format({
-                        value: new Date(entry.date),
+                        value: rawDate,
                         type: format.Type.DATE
                     });
                     sublist.setSublistValue({
