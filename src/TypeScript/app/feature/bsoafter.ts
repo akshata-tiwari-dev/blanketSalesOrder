@@ -26,9 +26,8 @@ export const afterSubmit: EntryPoints.UserEvent.afterSubmit = (context) => {
         scope: cache.Scope.PUBLIC
     });
 
-    // 🔍 Search for all item line records linked to this BSO
     const lineSearch = search.create({
-        type: 'customrecord_item', // Your item line record type
+        type: 'customrecord_item',
         filters: [['custrecord_bso_item_sublist_link', 'anyof', bsoId]],
         columns: ['internalid', 'custrecord_itemid']
     });
@@ -47,18 +46,23 @@ export const afterSubmit: EntryPoints.UserEvent.afterSubmit = (context) => {
             loader: () => null
         });
 
-        if (!scheduleCode) {
+        let isCacheLoaded = false;
+        let rawData = null;
+
+        if (scheduleCode) {
+            rawData = schedCache.get({
+                key: scheduleCode,
+                loader: () => null
+            });
+
+            if (rawData) {
+                isCacheLoaded = true;
+            } else {
+                log.debug('No schedule data for code', scheduleCode);
+                return true;
+            }
+        } else {
             log.debug('No schedule code in cache', `Item ${itemId}`);
-            return true;
-        }
-
-        const rawData = schedCache.get({
-            key: scheduleCode,
-            loader: () => null
-        });
-
-        if (!rawData) {
-            log.debug('No schedule data for code', scheduleCode);
             return true;
         }
 
@@ -72,7 +76,6 @@ export const afterSubmit: EntryPoints.UserEvent.afterSubmit = (context) => {
 
         const { scheduleData = [], startDate, endDate, quantity, releaseFreq } = parsed;
 
-        // ✅ Save base schedule metadata into the item line record
         try {
             const itemLine = record.load({
                 type: 'customrecord_item',
@@ -80,9 +83,16 @@ export const afterSubmit: EntryPoints.UserEvent.afterSubmit = (context) => {
                 isDynamic: true
             });
 
+            itemLine.setValue({
+                fieldId: 'custrecord_gensch',
+                value: false
+            });
+
             if (startDate) {
                 const start = new Date(startDate);
-                start.setTime(start.getTime() + 24* 60 * 60 * 1000);
+                if (isCacheLoaded) {
+                    start.setTime(start.getTime() + 0);
+                }
 
                 itemLine.setValue({
                     fieldId: 'custrecord_stdate',
@@ -95,7 +105,9 @@ export const afterSubmit: EntryPoints.UserEvent.afterSubmit = (context) => {
 
             if (endDate) {
                 const end = new Date(endDate);
-                end.setTime(end.getTime() +24* 60 * 60 * 1000);
+                if (isCacheLoaded) {
+                    end.setTime(end.getTime() + 0);
+                }
 
                 itemLine.setValue({
                     fieldId: 'custrecord_enddate',
@@ -105,7 +117,6 @@ export const afterSubmit: EntryPoints.UserEvent.afterSubmit = (context) => {
                     })
                 });
             }
-
 
             if (quantity) {
                 itemLine.setValue({
@@ -150,7 +161,8 @@ export const afterSubmit: EntryPoints.UserEvent.afterSubmit = (context) => {
         } catch (e: any) {
             log.error('Error during schedule cleanup', e.message);
         }
-        let i = 0;
+
+        let i = 1;
         for (const entry of scheduleData) {
             try {
                 const sched = record.create({
@@ -159,14 +171,17 @@ export const afterSubmit: EntryPoints.UserEvent.afterSubmit = (context) => {
                 });
 
                 const jsDate = new Date(entry.date);
-                jsDate.setTime(jsDate.getTime() + 0);
+                if (isCacheLoaded) {
+                    jsDate.setTime(jsDate.getTime() + 0);
+                }
+
                 const releaseDate = format.parse({
                     value: jsDate,
                     type: format.Type.DATE
                 });
 
                 sched.setValue({ fieldId: 'name', value: `Schedule No-${i}-Item ID-${itemId}` });
-                sched.setValue({ fieldId: 'custrecord_schsublink', value: lineId }); // link to item line
+                sched.setValue({ fieldId: 'custrecord_schsublink', value: lineId });
                 sched.setValue({ fieldId: 'custrecordstdate', value: releaseDate });
                 sched.setValue({ fieldId: 'custrecordqtyy', value: entry.qty });
 
@@ -176,6 +191,17 @@ export const afterSubmit: EntryPoints.UserEvent.afterSubmit = (context) => {
                 log.error('Schedule creation failed', e.message || e);
             }
             i++;
+        }
+
+        // 🧹 Clean cache after first successful use
+        try {
+            reverseCache.remove({ key: `last-schedule-for-item-${itemId}` });
+            if (scheduleCode) {
+                schedCache.remove({ key: scheduleCode });
+            }
+            log.debug('Cleaned cache', { itemId, scheduleCode });
+        } catch (e: any) {
+            log.error('Failed to clean cache', e.message || e);
         }
 
         return true;

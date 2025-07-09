@@ -155,20 +155,21 @@ define(["require", "exports", "N/currentRecord", "N/ui/dialog"], function (requi
         window.isGenerated = true;
     }
     exports.autoGenerateSchedule = autoGenerateSchedule;
-    function addOneDay(date) {
-        if (!date)
-            return '';
-        const d = new Date(date);
-        d.setDate(d.getDate() + 1); // ✅ Add 1 day
-        return d.toISOString(); // Store as ISO if you're already using ISO format
-    }
     function saveScheduleToCache() {
         try {
-            if (event)
-                event.preventDefault();
             const rec = currentRecord.get();
+            const context = { currentRecord: rec };
+            // ✅ Call validation first
+            const isValid = saveRecord(context);
+            if (!isValid)
+                return;
             const scheduleCode = rec.getValue({ fieldId: 'custpage_schedule_code' });
             const itemId = rec.getValue({ fieldId: 'custpage_item_id' });
+            const bsoId = rec.getValue({ fieldId: 'custpage_bso_id' });
+            const startDate = formatLocalDate(rec.getValue({ fieldId: 'custpage_start_date' }));
+            const endDate = formatLocalDate(rec.getValue({ fieldId: 'custpage_end_date' }));
+            const quantity = rec.getValue({ fieldId: 'custpage_quantity' });
+            const releaseFreq = rec.getValue({ fieldId: 'custpage_release_freq' });
             const lines = rec.getLineCount({ sublistId: 'custpage_schedule_sublist' });
             const scheduleData = [];
             for (let i = 0; i < lines; i++) {
@@ -182,38 +183,40 @@ define(["require", "exports", "N/currentRecord", "N/ui/dialog"], function (requi
                     fieldId: 'custpage_release_qty',
                     line: i
                 });
-                const date = rawDate;
                 const qty = parseInt(qtyStr, 10);
-                if (date && !isNaN(qty)) {
-                    scheduleData.push({ date, qty });
+                if (rawDate && !isNaN(qty)) {
+                    scheduleData.push({ date: formatLocalDate(rawDate), qty });
                 }
             }
-            if (!scheduleCode || !itemId || scheduleData.length === 0) {
+            if (!itemId || scheduleData.length === 0) {
                 alert('Missing required data.');
                 return;
             }
             const scriptUrl = '/app/site/hosting/scriptlet.nl?script=152&deploy=1';
+            const payload = {
+                itemId,
+                bsoId,
+                scheduleCode,
+                startDate,
+                endDate,
+                quantity,
+                releaseFreq,
+                scheduleData
+            };
             fetch(scriptUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    itemId,
-                    scheduleCode,
-                    scheduleData,
-                    startDate: rec.getValue({ fieldId: 'custpage_start_date' }),
-                    endDate: rec.getValue({ fieldId: 'custpage_end_date' }),
-                    quantity: rec.getValue({ fieldId: 'custpage_quantity' }),
-                    releaseFreq: rec.getValue({ fieldId: 'custpage_release_freq' })
-                })
+                body: JSON.stringify(payload)
             })
                 .then(response => response.json())
                 .then(result => {
+                console.log('Save result:', result);
                 if (result.success) {
-                    alert('Schedule cached successfully.');
-                    //window.close();
+                    alert(result.message || 'Schedule saved.');
+                    window.close();
                 }
                 else {
-                    alert('Server error: ' + (result.message || 'Unknown error'));
+                    alert('Error: ' + result.message);
                 }
             })
                 .catch(e => alert('Fetch error: ' + e.message));
@@ -223,6 +226,14 @@ define(["require", "exports", "N/currentRecord", "N/ui/dialog"], function (requi
         }
     }
     exports.saveScheduleToCache = saveScheduleToCache;
+    // ✅ Helper: Convert to M/D/YYYY format (NetSuite-native)
+    function formatLocalDate(input) {
+        const d = new Date(input);
+        const m = d.getMonth() + 1;
+        const day = d.getDate();
+        const y = d.getFullYear();
+        return `${m}/${day}/${y}`;
+    }
     function saveRecord(context) {
         const currentRecord = context.currentRecord;
         const date = currentRecord.getCurrentSublistValue({
@@ -273,7 +284,6 @@ define(["require", "exports", "N/currentRecord", "N/ui/dialog"], function (requi
             });
             return false;
         }
-        saveScheduleToCache(); // Save to cache
         return true;
     }
     exports.saveRecord = saveRecord;

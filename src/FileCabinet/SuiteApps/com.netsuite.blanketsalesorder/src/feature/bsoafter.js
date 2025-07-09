@@ -47,7 +47,6 @@ define(["require", "exports", "N/record", "N/cache", "N/log", "N/search", "N/for
             name: 'item_schedule_cache',
             scope: cache.Scope.PUBLIC
         });
-        // 🔍 Search for all item line records linked to this BSO
         const lineSearch = search.create({
             type: 'customrecord_item',
             filters: [['custrecord_bso_item_sublist_link', 'anyof', bsoId]],
@@ -64,16 +63,23 @@ define(["require", "exports", "N/record", "N/cache", "N/log", "N/search", "N/for
                 key: `last-schedule-for-item-${itemId}`,
                 loader: () => null
             });
-            if (!scheduleCode) {
-                log.debug('No schedule code in cache', `Item ${itemId}`);
-                return true;
+            let isCacheLoaded = false;
+            let rawData = null;
+            if (scheduleCode) {
+                rawData = schedCache.get({
+                    key: scheduleCode,
+                    loader: () => null
+                });
+                if (rawData) {
+                    isCacheLoaded = true;
+                }
+                else {
+                    log.debug('No schedule data for code', scheduleCode);
+                    return true;
+                }
             }
-            const rawData = schedCache.get({
-                key: scheduleCode,
-                loader: () => null
-            });
-            if (!rawData) {
-                log.debug('No schedule data for code', scheduleCode);
+            else {
+                log.debug('No schedule code in cache', `Item ${itemId}`);
                 return true;
             }
             let parsed;
@@ -85,16 +91,21 @@ define(["require", "exports", "N/record", "N/cache", "N/log", "N/search", "N/for
                 return true;
             }
             const { scheduleData = [], startDate, endDate, quantity, releaseFreq } = parsed;
-            // ✅ Save base schedule metadata into the item line record
             try {
                 const itemLine = record.load({
                     type: 'customrecord_item',
                     id: lineId,
                     isDynamic: true
                 });
+                itemLine.setValue({
+                    fieldId: 'custrecord_gensch',
+                    value: false
+                });
                 if (startDate) {
                     const start = new Date(startDate);
-                    start.setTime(start.getTime() + 24 * 60 * 60 * 1000);
+                    if (isCacheLoaded) {
+                        start.setTime(start.getTime() + 0);
+                    }
                     itemLine.setValue({
                         fieldId: 'custrecord_stdate',
                         value: format.parse({
@@ -105,7 +116,9 @@ define(["require", "exports", "N/record", "N/cache", "N/log", "N/search", "N/for
                 }
                 if (endDate) {
                     const end = new Date(endDate);
-                    end.setTime(end.getTime() + 24 * 60 * 60 * 1000);
+                    if (isCacheLoaded) {
+                        end.setTime(end.getTime() + 0);
+                    }
                     itemLine.setValue({
                         fieldId: 'custrecord_enddate',
                         value: format.parse({
@@ -156,7 +169,7 @@ define(["require", "exports", "N/record", "N/cache", "N/log", "N/search", "N/for
             catch (e) {
                 log.error('Error during schedule cleanup', e.message);
             }
-            let i = 0;
+            let i = 1;
             for (const entry of scheduleData) {
                 try {
                     const sched = record.create({
@@ -164,13 +177,15 @@ define(["require", "exports", "N/record", "N/cache", "N/log", "N/search", "N/for
                         isDynamic: true
                     });
                     const jsDate = new Date(entry.date);
-                    jsDate.setTime(jsDate.getTime() + 0);
+                    if (isCacheLoaded) {
+                        jsDate.setTime(jsDate.getTime() + 0);
+                    }
                     const releaseDate = format.parse({
                         value: jsDate,
                         type: format.Type.DATE
                     });
                     sched.setValue({ fieldId: 'name', value: `Schedule No-${i}-Item ID-${itemId}` });
-                    sched.setValue({ fieldId: 'custrecord_schsublink', value: lineId }); // link to item line
+                    sched.setValue({ fieldId: 'custrecord_schsublink', value: lineId });
                     sched.setValue({ fieldId: 'custrecordstdate', value: releaseDate });
                     sched.setValue({ fieldId: 'custrecordqtyy', value: entry.qty });
                     const schedId = sched.save();
@@ -180,6 +195,17 @@ define(["require", "exports", "N/record", "N/cache", "N/log", "N/search", "N/for
                     log.error('Schedule creation failed', e.message || e);
                 }
                 i++;
+            }
+            // 🧹 Clean cache after first successful use
+            try {
+                reverseCache.remove({ key: `last-schedule-for-item-${itemId}` });
+                if (scheduleCode) {
+                    schedCache.remove({ key: scheduleCode });
+                }
+                log.debug('Cleaned cache', { itemId, scheduleCode });
+            }
+            catch (e) {
+                log.error('Failed to clean cache', e.message || e);
             }
             return true;
         });

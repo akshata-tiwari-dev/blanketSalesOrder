@@ -1,5 +1,5 @@
 /**
- * @NAPIVersion 2.1
+ * @NApiVersion 2.1
  * @NScriptType Suitelet
  */
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
@@ -28,58 +28,35 @@ var __importStar = (this && this.__importStar) || function (mod) {
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
-define(["require", "exports", "N/ui/serverWidget", "N/log", "N/cache", "N/format", "N", "N/search"], function (require, exports, serverWidget_1, log, cache, format, N_1, search) {
+define(["require", "exports", "N/ui/serverWidget", "N/record", "N/log", "N/cache", "N/format", "N/search"], function (require, exports, serverWidget_1, record, log, cache, format, search) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.onRequest = void 0;
     serverWidget_1 = __importDefault(serverWidget_1);
+    record = __importStar(record);
     log = __importStar(log);
     cache = __importStar(cache);
     format = __importStar(format);
     search = __importStar(search);
-    // Helper Function used to parse delimited sublist data stored in the payload during cache interaction(Optional -- can be used to extract scheduleData in array form)
-    function parseScheduleList(sublistData) {
-        const rows = sublistData.split('\x02');
-        const scheduleDataInArray = [];
-        for (let i = 0; i < rows.length - 1; i += 2) {
-            const dateStr = rows[i]?.trim();
-            const qtyStr = rows[i + 1]?.trim();
-            if (!dateStr || !qtyStr)
-                continue;
-            const date = new Date(dateStr);
-            const qty = parseInt(qtyStr, 10);
-            if (!isFinite(date.getTime()) || isNaN(qty))
-                continue;
-            scheduleDataInArray.push({ date: date.toISOString(), qty });
-        }
-        return scheduleDataInArray;
-    }
     function onRequest(context) {
         const request = context.request;
         const response = context.response;
-        const rec = N_1.currentRecord.get();
         if (request.method === 'GET') {
-            //getting itemlineid as itemId and bsorecordid as bsoId as parameters from the popup url
             const itemId = request.parameters.itemid || '';
             const bsoId = request.parameters.bsoId || '';
             if (!itemId) {
                 response.write('Missing itemid parameter');
                 return;
             }
-            //cache interaction
-            const reverseCache = cache.getCache({ name: 'item_schedule_latest', scope: cache.Scope.PUBLIC }); //to get scheduleCode from itemId
-            const scheduleCache = cache.getCache({ name: 'item_schedule_cache', scope: cache.Scope.PUBLIC }); //to get scheduleData(Payload) from scheduleCode
+            const reverseCache = cache.getCache({ name: 'item_schedule_latest', scope: cache.Scope.PUBLIC });
+            const scheduleCache = cache.getCache({ name: 'item_schedule_cache', scope: cache.Scope.PUBLIC });
             let cachedScheduleData = [];
             let cachedStartDate = '';
             let cachedEndDate = '';
             let cachedQuantity = '';
             let cachedReleaseFreq = '';
             let scheduleCode = '';
-            let rawData = null;
-            //if bsoId is present (opening popup on an Item after submit) data is loaded from own record DB
             if (bsoId) {
-                log.debug('bso id is:', bsoId);
-                //performed saved search to get scheduled data from it's own DB
                 const sublistItemLineSearch = search.create({
                     type: 'customrecord_item',
                     filters: [
@@ -89,7 +66,6 @@ define(["require", "exports", "N/ui/serverWidget", "N/log", "N/cache", "N/format
                     ],
                     columns: ['custrecord_stdate', 'custrecord_enddate', 'custrecord_quantity', 'custrecord_freq']
                 });
-                //Fetched data from a particular item line
                 const sublistItemLineResult = sublistItemLineSearch.run().getRange({ start: 0, end: 1 })[0];
                 if (sublistItemLineResult) {
                     cachedStartDate = sublistItemLineResult.getValue('custrecord_stdate');
@@ -97,7 +73,6 @@ define(["require", "exports", "N/ui/serverWidget", "N/log", "N/cache", "N/format
                     cachedQuantity = sublistItemLineResult.getValue('custrecord_quantity');
                     cachedReleaseFreq = sublistItemLineResult.getValue('custrecord_freq');
                 }
-                //Saved search to extract schedule linked to that itemLine
                 const scheduleDataSearch = search.create({
                     type: 'customrecord_schedule',
                     filters: [
@@ -114,25 +89,12 @@ define(["require", "exports", "N/ui/serverWidget", "N/log", "N/cache", "N/format
                         qty: parseInt(row.getValue('custrecordqtyy'))
                     });
                 }
-                scheduleCode = `${itemId}-${Date.now()}`;
-                //creating a payload to cluster all data
-                const payload = JSON.stringify({
-                    scheduleData: cachedScheduleData,
-                    startDate: cachedStartDate,
-                    endDate: cachedEndDate,
-                    quantity: cachedQuantity,
-                    releaseFreq: cachedReleaseFreq
-                });
-                //adding data into cache but it's optional as form next we fetch data from the DB not Web Cache
-                scheduleCache.put({ key: scheduleCode, value: payload, ttl: 3600 });
-                reverseCache.put({ key: `last-schedule-for-item-${itemId}`, value: scheduleCode, ttl: 300 });
-                rawData = payload;
             }
             else {
-                // If bsoid is not present means we are opening popup during the BSO creation here the internalId of bso record is not exposed
-                //If user opens the popup again the previous saved data will be fetched
-                const latestScheduleCode = reverseCache.get({ key: `last-schedule-for-item-${itemId}`, loader: () => '' });
-                //if user is opening a saved or already exiting  popup at that itemLine
+                const latestScheduleCode = reverseCache.get({
+                    key: `last-schedule-for-item-${itemId}`,
+                    loader: () => ''
+                });
                 if (latestScheduleCode) {
                     const cachedData = scheduleCache.get({ key: latestScheduleCode, loader: () => '' });
                     if (cachedData) {
@@ -150,7 +112,6 @@ define(["require", "exports", "N/ui/serverWidget", "N/log", "N/cache", "N/format
                         }
                     }
                 }
-                //if user is opening a fresh or new popup at that itemLine
                 else {
                     scheduleCode = `${itemId}-${Date.now()}`;
                     const payload = JSON.stringify({
@@ -161,14 +122,11 @@ define(["require", "exports", "N/ui/serverWidget", "N/log", "N/cache", "N/format
                         releaseFreq: ''
                     });
                     scheduleCache.put({ key: scheduleCode, value: payload, ttl: 3600 });
-                    //linking the scheduleCode with the itemId in the cache
                     reverseCache.put({ key: `last-schedule-for-item-${itemId}`, value: scheduleCode, ttl: 300 });
                     log.audit('Initialized empty schedule cache', scheduleCode);
                 }
             }
-            //Creation of Suitelet Form
             const form = serverWidget_1.default.createForm({ title: 'Schedule Generator' });
-            //Linking suitelet with Clientscript which includes function(Auto
             form.clientScriptModulePath = './clientscript.js';
             form.addField({
                 id: 'custpage_start_date',
@@ -216,35 +174,18 @@ define(["require", "exports", "N/ui/serverWidget", "N/log", "N/cache", "N/format
             });
             let line = 0;
             for (const entry of cachedScheduleData) {
-                try {
-                    // Convert to JS Date and add 1 day (86,400,000 ms)
-                    const rawDate = new Date(entry.date);
-                    if (isNaN(rawDate.getTime())) {
-                        log.error('Invalid date in entry:', entry.date);
-                        continue;
-                    }
-                    rawDate.setTime(rawDate.getTime() + 24 * 60 * 60 * 1000); // ✅ Add 1 day safely
-                    const formattedDate = format.format({
-                        value: rawDate,
-                        type: format.Type.DATE
-                    });
-                    sublist.setSublistValue({
-                        id: 'custpage_release_date',
-                        line,
-                        value: formattedDate
-                    });
-                    sublist.setSublistValue({
-                        id: 'custpage_release_qty',
-                        line,
-                        value: entry.qty
-                    });
-                    line++;
-                }
-                catch (e) {
-                    log.error('Sublist render error', e.message || e);
-                }
+                sublist.setSublistValue({
+                    id: 'custpage_release_date',
+                    line,
+                    value: format.format({ value: new Date(entry.date), type: format.Type.DATE })
+                });
+                sublist.setSublistValue({
+                    id: 'custpage_release_qty',
+                    line,
+                    value: entry.qty
+                });
+                line++;
             }
-            scheduleCode = `${itemId}-${Date.now()}`;
             const itemField = form.addField({
                 id: 'custpage_item_id',
                 label: 'Item ID',
@@ -252,6 +193,13 @@ define(["require", "exports", "N/ui/serverWidget", "N/log", "N/cache", "N/format
             });
             itemField.defaultValue = itemId;
             itemField.updateDisplayType({ displayType: serverWidget_1.default.FieldDisplayType.HIDDEN });
+            const bsoField = form.addField({
+                id: 'custpage_bso_id',
+                label: 'BSO ID',
+                type: serverWidget_1.default.FieldType.TEXT
+            });
+            bsoField.defaultValue = bsoId;
+            bsoField.updateDisplayType({ displayType: serverWidget_1.default.FieldDisplayType.HIDDEN });
             const schedCodeField = form.addField({
                 id: 'custpage_schedule_code',
                 label: 'Schedule Code',
@@ -260,59 +208,151 @@ define(["require", "exports", "N/ui/serverWidget", "N/log", "N/cache", "N/format
             schedCodeField.defaultValue = scheduleCode;
             schedCodeField.updateDisplayType({ displayType: serverWidget_1.default.FieldDisplayType.HIDDEN });
             form.addButton({ id: 'custpage_auto_generate', label: 'Auto Generate', functionName: 'autoGenerateSchedule' });
-            form.addSubmitButton({ label: 'Done' });
+            form.addButton({
+                id: 'custpage_save_schedule',
+                label: 'Save Schedule',
+                functionName: 'saveScheduleToCache'
+            });
+            //form.addSubmitButton({label: 'Done'});
             response.writePage(form);
         }
-        // 🔴 POST — save to cache
         if (request.method === 'POST') {
             response.setHeader({ name: 'Content-Type', value: 'application/json' });
             try {
-                if (!request.body || typeof request.body !== 'string') {
-                    log.error('Missing POST body', 'No data received.');
+                const body = request.body?.trim();
+                log.debug('Raw request body (POST)', body);
+                if (!body) {
+                    log.error('Empty POST body');
                     response.write(JSON.stringify({ success: false, message: 'No data received.' }));
                     return;
                 }
-                let scheduleCode;
-                let scheduleData;
-                let itemId;
-                let startDate = '';
-                let endDate = '';
-                let quantity = '';
-                let releaseFreq = '';
-                const body = request.body.trim();
-                if (body.startsWith('{')) {
-                    const parsed = JSON.parse(body);
-                    scheduleCode = parsed.scheduleCode;
-                    scheduleData = parsed.scheduleData;
-                    itemId = parsed.itemId || scheduleCode?.split('-')[0];
-                    startDate = parsed.startDate || '';
-                    endDate = parsed.endDate || '';
-                    quantity = parsed.quantity || '';
-                    releaseFreq = parsed.releaseFreq || '';
+                let parsed;
+                try {
+                    parsed = JSON.parse(body);
+                }
+                catch (e) {
+                    log.error('Invalid JSON in POST', e.message || e);
+                    response.write(JSON.stringify({ success: false, message: 'Invalid JSON: ' + e.message }));
+                    return;
+                }
+                const { scheduleCode, scheduleData, itemId, bsoId, startDate = '', endDate = '', quantity = '', releaseFreq = '' } = parsed;
+                log.debug('Parsed POST data', { scheduleCode, itemId, bsoId, startDate, endDate, quantity, releaseFreq });
+                if (!itemId || !Array.isArray(scheduleData)) {
+                    throw new Error('Missing or invalid itemId or scheduleData');
+                }
+                if (bsoId) {
+                    log.debug('Mode: Save to database', { bsoId, itemId });
+                    const itemSearch = search.create({
+                        type: 'customrecord_item',
+                        filters: [
+                            ['custrecord_itemid', 'anyof', itemId],
+                            'AND',
+                            ['custrecord_bso_item_sublist_link', 'anyof', bsoId]
+                        ],
+                        columns: ['internalid']
+                    });
+                    const itemLine = itemSearch.run().getRange({ start: 0, end: 1 })[0];
+                    if (!itemLine)
+                        throw new Error('Item Line not found for BSO');
+                    const lineId = itemLine.getValue({ name: 'internalid' });
+                    const itemRec = record.load({
+                        type: 'customrecord_item',
+                        id: lineId,
+                        isDynamic: true
+                    });
+                    if (startDate) {
+                        itemRec.setValue({
+                            fieldId: 'custrecord_stdate',
+                            value: format.parse({
+                                value: startDate,
+                                type: format.Type.DATE
+                            })
+                        });
+                    }
+                    if (endDate) {
+                        itemRec.setValue({
+                            fieldId: 'custrecord_enddate',
+                            value: format.parse({
+                                value: endDate,
+                                type: format.Type.DATE
+                            })
+                        });
+                    }
+                    if (quantity)
+                        itemRec.setValue({ fieldId: 'custrecord_quantity', value: Number(quantity) });
+                    if (releaseFreq)
+                        itemRec.setValue({ fieldId: 'custrecord_freq', value: releaseFreq });
+                    itemRec.setValue({ fieldId: 'custrecord_gensch', value: false });
+                    itemRec.save();
+                    log.audit('Item line record updated', { lineId });
+                    // Delete existing schedules
+                    const schedSearch = search.create({
+                        type: 'customrecord_schedule',
+                        filters: [['custrecord_schsublink', 'anyof', lineId]],
+                        columns: ['internalid']
+                    });
+                    schedSearch.run().each(result => {
+                        const sid = result.getValue({ name: 'internalid' });
+                        try {
+                            record.delete({ type: 'customrecord_schedule', id: sid });
+                            log.debug('Deleted old schedule', sid);
+                        }
+                        catch (e) {
+                            log.error('Failed to delete schedule', { id: sid, error: e.message });
+                        }
+                        return true;
+                    });
+                    var i = 1;
+                    // Create new schedules
+                    for (const entry of scheduleData) {
+                        try {
+                            const sched = record.create({
+                                type: 'customrecord_schedule',
+                                isDynamic: true
+                            });
+                            sched.setValue({ fieldId: 'name', value: `Schedule No-${i}-Item ID-${itemId}` });
+                            i++;
+                            sched.setValue({ fieldId: 'custrecord_schsublink', value: lineId });
+                            if (entry.date) {
+                                sched.setValue({
+                                    fieldId: 'custrecordstdate',
+                                    value: format.parse({
+                                        value: entry.date,
+                                        type: format.Type.DATE
+                                    })
+                                });
+                            }
+                            sched.setValue({ fieldId: 'custrecordqtyy', value: entry.qty });
+                            const newId = sched.save();
+                            log.debug('Created new schedule', { id: newId, date: entry.date, qty: entry.qty });
+                        }
+                        catch (e) {
+                            log.error('Error creating schedule', e.message || e);
+                        }
+                    }
+                    log.audit('DB save complete', { bsoId, scheduleCount: scheduleData.length });
+                    response.write(JSON.stringify({ success: true, message: 'Schedule saved to database.' }));
                 }
                 else {
-                    throw new Error('Unsupported POST format.');
+                    log.debug('Mode: Save to cache (creation flow)', { itemId });
+                    const payload = {
+                        scheduleData,
+                        startDate,
+                        endDate,
+                        quantity,
+                        releaseFreq
+                    };
+                    const scheduleCache = cache.getCache({ name: 'item_schedule_cache', scope: cache.Scope.PUBLIC });
+                    scheduleCache.put({ key: scheduleCode, value: JSON.stringify(payload), ttl: 3600 });
+                    const reverseCache = cache.getCache({ name: 'item_schedule_latest', scope: cache.Scope.PUBLIC });
+                    reverseCache.put({ key: `last-schedule-for-item-${itemId}`, value: scheduleCode, ttl: 300 });
+                    log.audit('Schedule cached', { itemId, scheduleCode });
+                    response.write(JSON.stringify({ success: true, message: `Schedule cached under code: ${scheduleCode}` }));
                 }
-                if (!scheduleCode || !Array.isArray(scheduleData) || !itemId) {
-                    throw new Error('Missing or invalid scheduleCode or itemId');
-                }
-                const payload = {
-                    scheduleData,
-                    startDate,
-                    endDate,
-                    quantity,
-                    releaseFreq
-                };
-                const scheduleCache = cache.getCache({ name: 'item_schedule_cache', scope: cache.Scope.PUBLIC });
-                scheduleCache.put({ key: scheduleCode, value: JSON.stringify(payload), ttl: 3600 });
-                const reverseCache = cache.getCache({ name: 'item_schedule_latest', scope: cache.Scope.PUBLIC });
-                reverseCache.put({ key: `last-schedule-for-item-${itemId}`, value: scheduleCode, ttl: 300 });
-                log.audit('Schedule cached', `Item ID: ${itemId}, Schedule Code: ${scheduleCode}, Entries: ${scheduleData.length}`);
-                response.write(JSON.stringify({ success: true, message: `Schedule saved under code: ${scheduleCode}` }));
             }
             catch (e) {
-                log.error('POST handler error', e.message || e);
-                response.write(JSON.stringify({ success: false, message: e.message || 'Unexpected error' }));
+                log.error('Unhandled POST error', e.message || e);
+                response.write(JSON.stringify({ success: false, message: e.message || 'Unexpected error occurred' }));
             }
         }
     }
