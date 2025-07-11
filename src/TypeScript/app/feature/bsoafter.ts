@@ -63,6 +63,21 @@ export const afterSubmit: EntryPoints.UserEvent.afterSubmit = (context) => {
             }
         } else {
             log.debug('No schedule code in cache', `Item ${itemId}`);
+            try {
+                const itemLine = record.load({
+                    type: 'customrecord_item',
+                    id: lineId,
+                    isDynamic: true
+                });
+                itemLine.setValue({
+                    fieldId: 'custrecord_gensch',
+                    value: false
+                });
+                itemLine.save();
+                log.debug('Unchecked gensch despite no cache', { itemId, lineId });
+            } catch (e: any) {
+                log.error('Failed to uncheck gensch when no cache', e.message || e);
+            }
             return true;
         }
 

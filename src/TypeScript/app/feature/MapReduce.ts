@@ -3,6 +3,7 @@
  * @NScriptType MapReduceScript
  */
 
+// Importing relevant modules
 import { EntryPoints } from 'N/types';
 import * as query from 'N/query';
 import * as log from 'N/log';
@@ -10,10 +11,12 @@ import * as record from 'N/record';
 import * as email from 'N/email';
 import * as runtime from 'N/runtime';
 
+// Format date to YYYY-MM-DD
 function formatDate(d: Date): string {
     return d.toISOString().split('T')[0];
 }
 
+// Input stage: Get records matching today's date and approved status
 export const getInputData: EntryPoints.MapReduce.getInputData = () => {
     try {
         const today = new Date();
@@ -57,6 +60,7 @@ export const getInputData: EntryPoints.MapReduce.getInputData = () => {
     }
 };
 
+// Map stage: Group by customer ID
 export const map: EntryPoints.MapReduce.map = (context) => {
     const data = JSON.parse(context.value);
 
@@ -70,18 +74,20 @@ export const map: EntryPoints.MapReduce.map = (context) => {
         log.audit('Not Today', `Schedule ID ${scheduleId} — Release Date: ${releaseDate}, Today: ${today}`);
     }
 
-    // Group by customerId
     context.write({
         key: data.customer_id,
         value: JSON.stringify(data)
     });
 };
 
+// Reduce stage: Create sales order per customer
 export const reduce: EntryPoints.MapReduce.reduce = (context) => {
     const customerId = context.key;
     const items = context.values.map(val => JSON.parse(val));
 
     log.audit('Creating Sales Order for Customer', customerId);
+
+    let salesOrderId: string | number;
 
     try {
         const salesOrder = record.create({
@@ -96,9 +102,7 @@ export const reduce: EntryPoints.MapReduce.reduce = (context) => {
         for (const entry of items) {
             salesOrder.selectNewLine({ sublistId: 'item' });
 
-
             const safeRate = entry.rate && !isNaN(entry.rate) ? Number(entry.rate) : 0;
-
 
             salesOrder.setCurrentSublistValue({ sublistId: 'item', fieldId: 'item', value: entry.item_id });
             salesOrder.setCurrentSublistValue({ sublistId: 'item', fieldId: 'quantity', value: entry.quantity });
@@ -107,11 +111,29 @@ export const reduce: EntryPoints.MapReduce.reduce = (context) => {
             salesOrder.commitLine({ sublistId: 'item' });
         }
 
-        const salesOrderId = salesOrder.save();
+        salesOrderId = salesOrder.save();
+        log.audit('Sales Order Created', `Customer: ${customerId}, ID: ${salesOrderId}`);
+
+        // Link schedule records to the created Sales Order
+        for (const entry of items) {
+            if (entry.schedule_id) {
+                record.submitFields({
+                    type: 'customrecord_schedule',
+                    id: entry.schedule_id,
+                    values: {
+                        custrecord_so_link: salesOrderId
+                    }
+                });
+                log.audit('Schedule Updated', `Schedule ID ${entry.schedule_id} linked to SO ID ${salesOrderId}`);
+            }
+        }
+
+        // Notify customer by email
         const customerRec = record.load({
             type: record.Type.CUSTOMER,
             id: customerId
         });
+
         const emailTo = customerRec.getValue({ fieldId: 'email' });
 
         if (!emailTo) {
@@ -119,17 +141,14 @@ export const reduce: EntryPoints.MapReduce.reduce = (context) => {
             return;
         }
 
-
         email.send({
             author: 641,
             recipients: emailTo as string,
             subject: `Order Confirmation: ${salesOrderId}`,
-            body: `Dear customer, your  Sales Order ${salesOrderId} has been created successfully.`
+            body: `Dear customer, your Sales Order ${salesOrderId} has been created successfully.`
         });
 
         log.audit('Email sent successfully', `To: ${emailTo}`);
-
-        log.audit('Sales Order Created', `Customer: ${customerId}, ID: ${salesOrderId}`);
 
     } catch (e: any) {
         log.error(`SO creation failed for Customer ${customerId}`, e.message);

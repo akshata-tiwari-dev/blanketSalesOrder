@@ -33,9 +33,11 @@ define(["require", "exports", "N/query", "N/log", "N/record", "N/email"], functi
     log = __importStar(log);
     record = __importStar(record);
     email = __importStar(email);
+    // Format date to YYYY-MM-DD
     function formatDate(d) {
         return d.toISOString().split('T')[0];
     }
+    // Input stage: Get records matching today's date and approved status
     const getInputData = () => {
         try {
             const today = new Date();
@@ -76,6 +78,7 @@ define(["require", "exports", "N/query", "N/log", "N/record", "N/email"], functi
         }
     };
     exports.getInputData = getInputData;
+    // Map stage: Group by customer ID
     const map = (context) => {
         const data = JSON.parse(context.value);
         const scheduleId = data.schedule_id;
@@ -87,17 +90,18 @@ define(["require", "exports", "N/query", "N/log", "N/record", "N/email"], functi
         else {
             log.audit('Not Today', `Schedule ID ${scheduleId} — Release Date: ${releaseDate}, Today: ${today}`);
         }
-        // Group by customerId
         context.write({
             key: data.customer_id,
             value: JSON.stringify(data)
         });
     };
     exports.map = map;
+    // Reduce stage: Create sales order per customer
     const reduce = (context) => {
         const customerId = context.key;
         const items = context.values.map(val => JSON.parse(val));
         log.audit('Creating Sales Order for Customer', customerId);
+        let salesOrderId;
         try {
             const salesOrder = record.create({
                 type: record.Type.SALES_ORDER,
@@ -114,7 +118,22 @@ define(["require", "exports", "N/query", "N/log", "N/record", "N/email"], functi
                 salesOrder.setCurrentSublistValue({ sublistId: 'item', fieldId: 'rate', value: safeRate });
                 salesOrder.commitLine({ sublistId: 'item' });
             }
-            const salesOrderId = salesOrder.save();
+            salesOrderId = salesOrder.save();
+            log.audit('Sales Order Created', `Customer: ${customerId}, ID: ${salesOrderId}`);
+            // Link schedule records to the created Sales Order
+            for (const entry of items) {
+                if (entry.schedule_id) {
+                    record.submitFields({
+                        type: 'customrecord_schedule',
+                        id: entry.schedule_id,
+                        values: {
+                            custrecord_so_link: salesOrderId
+                        }
+                    });
+                    log.audit('Schedule Updated', `Schedule ID ${entry.schedule_id} linked to SO ID ${salesOrderId}`);
+                }
+            }
+            // Notify customer by email
             const customerRec = record.load({
                 type: record.Type.CUSTOMER,
                 id: customerId
@@ -128,10 +147,9 @@ define(["require", "exports", "N/query", "N/log", "N/record", "N/email"], functi
                 author: 641,
                 recipients: emailTo,
                 subject: `Order Confirmation: ${salesOrderId}`,
-                body: `Dear customer, your  Sales Order ${salesOrderId} has been created successfully.`
+                body: `Dear customer, your Sales Order ${salesOrderId} has been created successfully.`
             });
             log.audit('Email sent successfully', `To: ${emailTo}`);
-            log.audit('Sales Order Created', `Customer: ${customerId}, ID: ${salesOrderId}`);
         }
         catch (e) {
             log.error(`SO creation failed for Customer ${customerId}`, e.message);

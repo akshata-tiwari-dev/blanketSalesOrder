@@ -31,37 +31,65 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 define(["require", "exports", "N/currentRecord", "N/ui/dialog"], function (require, exports, currentRecord, dialog_1) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
-    exports.saveRecord = exports.saveScheduleToCache = exports.autoGenerateSchedule = exports.pageInit = void 0;
+    exports.saveRecord = exports.saveScheduleToCache = exports.autoGenerateSchedule = exports.pageInit = exports.fieldChanged = void 0;
     currentRecord = __importStar(currentRecord);
     dialog_1 = __importDefault(dialog_1);
     window.isGenerated = false;
+    const fieldChanged = (context) => {
+        const { sublistId, fieldId, line } = context;
+        if (sublistId === 'custpage_schedule_sublist' && fieldId === 'custpage_so_open_checkbox') {
+            const rec = currentRecord.get();
+            const isChecked = rec.getCurrentSublistValue({
+                sublistId,
+                fieldId: 'custpage_so_open_checkbox'
+            });
+            const soUrl = rec.getCurrentSublistValue({
+                sublistId,
+                fieldId: 'custpage_sales_order_link'
+            });
+            if (isChecked && soUrl && soUrl.startsWith('http')) {
+                nlExtOpenWindow(soUrl, 'View SO', 1000, 800);
+                rec.setCurrentSublistValue({
+                    sublistId,
+                    fieldId: 'custpage_so_open_checkbox',
+                    value: false
+                });
+                rec.commitLine({ sublistId });
+            }
+        }
+    };
+    exports.fieldChanged = fieldChanged;
     function pageInit(context) {
+        // ✅ Populate fields and schedule lines
         try {
             const rec = currentRecord.get();
-            // Preload meta fields
             if (window.scheduleMeta) {
-                const meta = window.scheduleMeta;
-                if (meta.startDate)
-                    rec.setValue({ fieldId: 'custpage_start_date', value: meta.startDate });
-                if (meta.endDate)
-                    rec.setValue({ fieldId: 'custpage_end_date', value: meta.endDate });
-                if (meta.quantity)
-                    rec.setValue({ fieldId: 'custpage_quantity', value: parseInt(meta.quantity, 10) });
-                if (meta.releaseFreq)
-                    rec.setValue({ fieldId: 'custpage_release_freq', value: meta.releaseFreq });
+                const m = window.scheduleMeta;
+                if (m.startDate)
+                    rec.setValue({ fieldId: 'custpage_start_date', value: m.startDate });
+                if (m.endDate)
+                    rec.setValue({ fieldId: 'custpage_end_date', value: m.endDate });
+                if (m.quantity)
+                    rec.setValue({ fieldId: 'custpage_quantity', value: parseInt(m.quantity, 10) });
+                if (m.releaseFreq)
+                    rec.setValue({ fieldId: 'custpage_release_freq', value: m.releaseFreq });
             }
-            // Preload sublist entries
             const sublistId = 'custpage_schedule_sublist';
             if (Array.isArray(window.scheduleLines) && window.scheduleLines.length > 0) {
                 window.scheduleLines.forEach((entry) => {
-                    if (!entry?.date || !entry?.qty)
+                    if (!entry.date || !entry.qty)
                         return;
                     rec.selectNewLine({ sublistId });
                     rec.setCurrentSublistValue({ sublistId, fieldId: 'custpage_release_date', value: entry.date });
                     rec.setCurrentSublistValue({ sublistId, fieldId: 'custpage_release_qty', value: entry.qty });
+                    // ➜ Store only SO ID in this field
+                    rec.setCurrentSublistValue({
+                        sublistId,
+                        fieldId: 'custpage_sales_order_link',
+                        value: entry.salesOrderId || ''
+                    });
                     rec.commitLine({ sublistId });
                 });
-                // ✅ Mark as already generated
                 window.isGenerated = true;
             }
             else {
@@ -69,7 +97,7 @@ define(["require", "exports", "N/currentRecord", "N/ui/dialog"], function (requi
             }
         }
         catch (e) {
-            console.error('Preload failed:', e.message || e);
+            console.error('pageInit error:', e.message);
         }
     }
     exports.pageInit = pageInit;
@@ -159,7 +187,6 @@ define(["require", "exports", "N/currentRecord", "N/ui/dialog"], function (requi
         try {
             const rec = currentRecord.get();
             const context = { currentRecord: rec };
-            // ✅ Call validation first
             const isValid = saveRecord(context);
             if (!isValid)
                 return;
@@ -183,9 +210,25 @@ define(["require", "exports", "N/currentRecord", "N/ui/dialog"], function (requi
                     fieldId: 'custpage_release_qty',
                     line: i
                 });
+                const salesOrderUrl = rec.getSublistValue({
+                    sublistId: 'custpage_schedule_sublist',
+                    fieldId: 'custpage_sales_order_link',
+                    line: i
+                });
                 const qty = parseInt(qtyStr, 10);
+                let salesOrderId = '';
+                if (typeof salesOrderUrl === 'string') {
+                    const match = salesOrderUrl.match(/id=(\d+)/);
+                    if (match)
+                        salesOrderId = match[1];
+                }
+                // extract ID from URL
                 if (rawDate && !isNaN(qty)) {
-                    scheduleData.push({ date: formatLocalDate(rawDate), qty });
+                    scheduleData.push({
+                        date: formatLocalDate(rawDate),
+                        qty,
+                        salesOrderId
+                    });
                 }
             }
             if (!itemId || scheduleData.length === 0) {
@@ -194,14 +237,7 @@ define(["require", "exports", "N/currentRecord", "N/ui/dialog"], function (requi
             }
             const scriptUrl = '/app/site/hosting/scriptlet.nl?script=152&deploy=1';
             const payload = {
-                itemId,
-                bsoId,
-                scheduleCode,
-                startDate,
-                endDate,
-                quantity,
-                releaseFreq,
-                scheduleData
+                itemId, bsoId, scheduleCode, startDate, endDate, quantity, releaseFreq, scheduleData
             };
             fetch(scriptUrl, {
                 method: 'POST',
@@ -212,8 +248,10 @@ define(["require", "exports", "N/currentRecord", "N/ui/dialog"], function (requi
                 .then(result => {
                 console.log('Save result:', result);
                 if (result.success) {
-                    alert(result.message || 'Schedule saved.');
-                    window.close();
+                    dialog_1.default.alert({
+                        title: 'Schedule Generated',
+                        message: `All Schedule Saved Successfully.`,
+                    });
                 }
                 else {
                     alert('Error: ' + result.message);
@@ -251,8 +289,8 @@ define(["require", "exports", "N/currentRecord", "N/ui/dialog"], function (requi
             sublistId: 'custpage_schedule_sublist'
         });
         let totalQty = 0;
-        const startDate = (new Date(currentRecord.getValue({ fieldId: 'custpage_start_date' })));
-        const endDate = (new Date(currentRecord.getValue({ fieldId: 'custpage_end_date' })));
+        const startDate = new Date(currentRecord.getValue({ fieldId: 'custpage_start_date' }));
+        const endDate = new Date(currentRecord.getValue({ fieldId: 'custpage_end_date' }));
         for (let i = 0; i < totalRows; i++) {
             const releaseDateStr = currentRecord.getSublistValue({
                 sublistId: 'custpage_schedule_sublist',

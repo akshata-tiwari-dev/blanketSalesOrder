@@ -46,7 +46,7 @@ define(["require", "exports", "N/currentRecord"], function (require, exports, cu
         });
         if (isCheckedScheduleBox && itemLineId) {
             const url = `/app/site/hosting/scriptlet.nl?script=152&deploy=1&itemid=${itemLineId}&bsoId=${bsoid}`;
-            nlExtOpenWindow(encodeURI(url), 'Schedule Creation', 800, 600);
+            nlExtOpenWindow(encodeURI(url), 'Schedule Creation', 1000, 800);
         }
     };
     exports.fieldChanged = fieldChanged;
@@ -72,7 +72,7 @@ define(["require", "exports", "N/currentRecord"], function (require, exports, cu
                 });
                 const bsoId = recordIdOfBSO.id;
                 const url = `/app/site/hosting/scriptlet.nl?script=152&deploy=1&itemid=${itemId}&bsoId=${bsoId}`;
-                nlExtOpenWindow(encodeURI(url), 'Schedule Creation', 800, 600);
+                nlExtOpenWindow(encodeURI(url), 'Schedule Creation', 1000, 800);
                 break; // only open popup once
             }
         }

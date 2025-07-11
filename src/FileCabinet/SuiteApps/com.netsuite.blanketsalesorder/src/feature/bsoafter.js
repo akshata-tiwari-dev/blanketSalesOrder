@@ -80,6 +80,22 @@ define(["require", "exports", "N/record", "N/cache", "N/log", "N/search", "N/for
             }
             else {
                 log.debug('No schedule code in cache', `Item ${itemId}`);
+                try {
+                    const itemLine = record.load({
+                        type: 'customrecord_item',
+                        id: lineId,
+                        isDynamic: true
+                    });
+                    itemLine.setValue({
+                        fieldId: 'custrecord_gensch',
+                        value: false
+                    });
+                    itemLine.save();
+                    log.debug('Unchecked gensch despite no cache', { itemId, lineId });
+                }
+                catch (e) {
+                    log.error('Failed to uncheck gensch when no cache', e.message || e);
+                }
                 return true;
             }
             let parsed;
