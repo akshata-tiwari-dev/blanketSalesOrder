@@ -26,12 +26,21 @@ export function onRequest(context: EntryPoints.Suitelet.onRequestContext) {
         const bsoId = request.parameters.bsoId || '';
         const reverseCache = cache.getCache({name: 'item_schedule_latest', scope: cache.Scope.PUBLIC});
         const scheduleCache = cache.getCache({name: 'item_schedule_cache', scope: cache.Scope.PUBLIC});
-
+        let isReadOnly = false;
         let cachedScheduleData: ScheduleEntry[] = [], cachedStartDate = '', cachedEndDate = '', cachedQuantity = '',
             cachedReleaseFreq = '', scheduleCode = '';
 
         // Load from DB (edit)
         if (bsoId) {
+            const bsoStatus = record.load({
+                type: 'customrecord_bso',
+                id: bsoId,
+                isDynamic: false
+            }).getValue({ fieldId: 'custrecord127' });
+
+            if (bsoStatus == 1 || bsoStatus == 3) {
+                isReadOnly = true;
+            }
             const sublistItemLineSearch = search.create({
                 type: 'customrecord_item',
                 filters: [['custrecord_itemid', 'anyof', itemId], 'AND', ['custrecord_bso_item_sublist_link', 'anyof', bsoId]],
@@ -92,22 +101,30 @@ export function onRequest(context: EntryPoints.Suitelet.onRequestContext) {
             id: 'custpage_start_date',
             label: 'Start Date',
             type: serverWidget.FieldType.DATE
+        }).updateDisplayType({
+            displayType: isReadOnly ? serverWidget.FieldDisplayType.DISABLED : serverWidget.FieldDisplayType.NORMAL
         }).defaultValue = cachedStartDate ? new Date(cachedStartDate) : null;
         form.addField({
             id: 'custpage_end_date',
             label: 'End Date',
             type: serverWidget.FieldType.DATE
+        }).updateDisplayType({
+            displayType: isReadOnly ? serverWidget.FieldDisplayType.DISABLED : serverWidget.FieldDisplayType.NORMAL
         }).defaultValue = cachedEndDate ? new Date(cachedEndDate) : null;
         form.addField({
             id: 'custpage_quantity',
             label: 'Quantity',
             type: serverWidget.FieldType.INTEGER
+        }).updateDisplayType({
+            displayType: isReadOnly ? serverWidget.FieldDisplayType.DISABLED : serverWidget.FieldDisplayType.NORMAL
         }).defaultValue = cachedQuantity;
 
         const freqField = form.addField({
             id: 'custpage_release_freq',
             label: 'Release Frequency',
             type: serverWidget.FieldType.SELECT
+        }).updateDisplayType({
+            displayType: isReadOnly ? serverWidget.FieldDisplayType.DISABLED : serverWidget.FieldDisplayType.NORMAL
         });
         ['e:Daily', 'b:Weekly', 'c:Bi-Weekly', 'a:Monthly', 'd:Quarterly', 'y:Yearly'].forEach(opt => {
             const [value, text] = opt.split(':');
@@ -121,8 +138,12 @@ export function onRequest(context: EntryPoints.Suitelet.onRequestContext) {
             label: 'Generated Schedule',
             type: serverWidget.SublistType.INLINEEDITOR
         });
-        sublist.addField({id: 'custpage_release_date', label: 'Release Date', type: serverWidget.FieldType.DATE});
-        sublist.addField({id: 'custpage_release_qty', label: 'Quantity', type: serverWidget.FieldType.INTEGER});
+        sublist.addField({id: 'custpage_release_date', label: 'Release Date', type: serverWidget.FieldType.DATE}).updateDisplayType({
+            displayType: isReadOnly ? serverWidget.FieldDisplayType.DISABLED : serverWidget.FieldDisplayType.NORMAL
+        });
+        sublist.addField({id: 'custpage_release_qty', label: 'Quantity', type: serverWidget.FieldType.INTEGER}).updateDisplayType({
+            displayType: isReadOnly ? serverWidget.FieldDisplayType.DISABLED : serverWidget.FieldDisplayType.NORMAL
+        });
         sublist.addField({id: 'custpage_sales_order_link', label: 'Sales Order Link', type: serverWidget.FieldType.URL}).updateDisplayType({
             displayType: serverWidget.FieldDisplayType.HIDDEN
         })
@@ -194,8 +215,19 @@ export function onRequest(context: EntryPoints.Suitelet.onRequestContext) {
             type: serverWidget.FieldType.TEXT
         }).updateDisplayType({displayType: serverWidget.FieldDisplayType.HIDDEN}).defaultValue = scheduleCode;
 
-        form.addButton({id: 'custpage_auto_generate', label: 'Auto Generate', functionName: 'autoGenerateSchedule'});
-        form.addButton({id: 'custpage_save_schedule', label: 'Save Schedule', functionName: 'saveScheduleToCache'});
+        if (!isReadOnly) {
+            form.addButton({
+                id: 'custpage_auto_generate',
+                label: 'Auto Generate',
+                functionName: 'autoGenerateSchedule'
+            });
+            form.addButton({
+                id: 'custpage_save_schedule',
+                label: 'Save Schedule',
+                functionName: 'saveScheduleToCache'
+            });
+        }
+
 
         response.writePage(form);
     }
@@ -292,7 +324,7 @@ export function onRequest(context: EntryPoints.Suitelet.onRequestContext) {
                 reverseCache.put({ key: `last-schedule-for-item-${itemId}`, value: finalCode, ttl: 300 });
 
                 log.audit('Schedule cached', { itemId, scheduleCode: finalCode });
-                //response.write(JSON.stringify({ success: true, message: `Schedule cached under code: ${finalCode}` }));
+                response.write(JSON.stringify({ success: true, message: `Schedule cached under code: ${finalCode}` }));
             }
         } catch (e: any) {
             log.error('Unhandled POST error', e.message || e);
