@@ -41,7 +41,7 @@ export const fieldChanged: ClientScript['fieldChanged'] = (context) => {
         }) as string;
 
         if (isChecked && soUrl && soUrl.startsWith('http')) {
-            nlExtOpenWindow(soUrl, 'View SO', 1000, 800);
+            nlExtOpenWindow(soUrl, 'View SO', 800, 800);
 
             rec.setCurrentSublistValue({
                 sublistId,

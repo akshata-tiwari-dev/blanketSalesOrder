@@ -25,14 +25,13 @@ var __importStar = (this && this.__importStar) || function (mod) {
     __setModuleDefault(result, mod);
     return result;
 };
-define(["require", "exports", "N/query", "N/log", "N/record", "N/email"], function (require, exports, query, log, record, email) {
+define(["require", "exports", "N/query", "N/log", "N/record"], function (require, exports, query, log, record) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.reduce = exports.map = exports.getInputData = void 0;
     query = __importStar(query);
     log = __importStar(log);
     record = __importStar(record);
-    email = __importStar(email);
     // Format date to YYYY-MM-DD
     function formatDate(d) {
         return d.toISOString().split('T')[0];
@@ -43,16 +42,15 @@ define(["require", "exports", "N/query", "N/log", "N/record", "N/email"], functi
             const today = new Date();
             const isoToday = today.toISOString().split('T')[0];
             const queryString = `
-            SELECT
-                sch.id AS schedule_id,
-                sch.custrecordstdate AS release_date,
-                sch.custrecordqtyy AS quantity,
-                items.id AS item_line_id,
-                items.custrecord_itemid AS item_id,
-                items.custrecord_rate AS rate,
-                bso.custrecord_loc AS location,
-                bso.id AS bso_id,
-                bso.custrecord_customer AS customer_id
+            SELECT sch.id                  AS schedule_id,
+                   sch.custrecordstdate    AS release_date,
+                   sch.custrecordqtyy      AS quantity,
+                   items.id                AS item_line_id,
+                   items.custrecord_itemid AS item_id,
+                   items.custrecord_rate   AS rate,
+                   bso.custrecord_loc      AS location,
+                   bso.id                  AS bso_id,
+                   bso.custrecord_customer AS customer_id
             FROM customrecord_schedule sch
                      JOIN customrecord_item items ON sch.custrecord_schsublink = items.id
                      JOIN customrecord_bso bso ON items.custrecord_bso_item_sublist_link = bso.id
@@ -110,6 +108,24 @@ define(["require", "exports", "N/query", "N/log", "N/record", "N/email"], functi
             salesOrder.setValue({ fieldId: 'entity', value: parseInt(customerId) });
             salesOrder.setValue({ fieldId: 'trandate', value: new Date(items[0].release_date) });
             salesOrder.setValue({ fieldId: 'custbodyiscreated', value: true });
+            // salesOrder.setValue({fieldId: 'tobeemailed', value: true});
+            try {
+                const customerRec = record.load({
+                    type: record.Type.CUSTOMER,
+                    id: customerId
+                });
+                const emailTo = customerRec.getValue({ fieldId: 'email' });
+                if (emailTo) {
+                    salesOrder.setValue({ fieldId: 'email', value: emailTo });
+                    salesOrder.setValue({ fieldId: 'tobeemailed', value: true });
+                }
+                else {
+                    log.audit('No email on customer — skipping tobeemailed', `Customer ID: ${customerId}`);
+                }
+            }
+            catch (e) {
+                log.error('Customer email fetch failed', e.message);
+            }
             for (const entry of items) {
                 salesOrder.selectNewLine({ sublistId: 'item' });
                 const safeRate = entry.rate && !isNaN(entry.rate) ? Number(entry.rate) : 0;
@@ -133,23 +149,6 @@ define(["require", "exports", "N/query", "N/log", "N/record", "N/email"], functi
                     log.audit('Schedule Updated', `Schedule ID ${entry.schedule_id} linked to SO ID ${salesOrderId}`);
                 }
             }
-            // Notify customer by email
-            const customerRec = record.load({
-                type: record.Type.CUSTOMER,
-                id: customerId
-            });
-            const emailTo = customerRec.getValue({ fieldId: 'email' });
-            if (!emailTo) {
-                log.debug('No email found on customer', customerId);
-                return;
-            }
-            email.send({
-                author: 641,
-                recipients: emailTo,
-                subject: `Order Confirmation: ${salesOrderId}`,
-                body: `Dear customer, your Sales Order ${salesOrderId} has been created successfully.`
-            });
-            log.audit('Email sent successfully', `To: ${emailTo}`);
         }
         catch (e) {
             log.error(`SO creation failed for Customer ${customerId}`, e.message);

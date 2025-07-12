@@ -48,7 +48,7 @@ define(["require", "exports", "N/currentRecord", "N/ui/dialog"], function (requi
                 fieldId: 'custpage_sales_order_link'
             });
             if (isChecked && soUrl && soUrl.startsWith('http')) {
-                nlExtOpenWindow(soUrl, 'View SO', 1000, 800);
+                nlExtOpenWindow(soUrl, 'View SO', 800, 800);
                 rec.setCurrentSublistValue({
                     sublistId,
                     fieldId: 'custpage_so_open_checkbox',
