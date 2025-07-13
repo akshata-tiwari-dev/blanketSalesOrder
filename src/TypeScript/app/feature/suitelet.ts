@@ -321,7 +321,7 @@ export function onRequest(context: EntryPoints.Suitelet.onRequestContext) {
                 scheduleCache.put({ key: finalCode, value: JSON.stringify(payload), ttl: 3600 });
 
                 const reverseCache = cache.getCache({ name: 'item_schedule_latest', scope: cache.Scope.PUBLIC });
-                reverseCache.put({ key: `last-schedule-for-item-${itemId}`, value: finalCode, ttl: 300 });
+                reverseCache.put({ key: `last-schedule-for-item-${itemId}`, value: finalCode, ttl: 600 });
 
                 log.audit('Schedule cached', { itemId, scheduleCode: finalCode });
                 response.write(JSON.stringify({ success: true, message: `Schedule cached under code: ${finalCode}` }));

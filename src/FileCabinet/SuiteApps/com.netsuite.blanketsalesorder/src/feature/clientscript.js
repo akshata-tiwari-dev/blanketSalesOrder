@@ -146,7 +146,7 @@ define(["require", "exports", "N/currentRecord", "N/ui/dialog"], function (requi
             return;
         }
         const remainingQty = qty - existingTotal;
-        let start = latestDate ? new Date(latestDate.getTime() + msPerDay) : new Date(sd);
+        let start = latestDate ? new Date(latestDate.getTime() + interval * msPerDay) : new Date(sd);
         const totalDays = Math.floor((end.getTime() - start.getTime()) / msPerDay) + 1;
         if (totalDays <= 0) {
             alert('Date range too short or end date is before start date.');
@@ -155,6 +155,14 @@ define(["require", "exports", "N/currentRecord", "N/ui/dialog"], function (requi
         const chunks = Math.floor(totalDays / interval);
         if (chunks === 0) {
             alert('Date range too short for selected frequency.');
+            return;
+        }
+        const maxLinesAllowed = 1000;
+        if (chunks > maxLinesAllowed) {
+            dialog_1.default.alert({
+                title: 'Line Limit Exceeded',
+                message: `Auto-generation would result in ${chunks} lines, which exceeds the allowed maximum of ${maxLinesAllowed}. Please adjust the date range or frequency.`
+            });
             return;
         }
         const baseQty = Math.floor(remainingQty / chunks);
@@ -169,7 +177,7 @@ define(["require", "exports", "N/currentRecord", "N/ui/dialog"], function (requi
             rec.setCurrentSublistValue({
                 sublistId,
                 fieldId: 'custpage_release_qty',
-                value: i === 0 ? baseQty + remainder : baseQty
+                value: i < remainder ? baseQty + 1 : baseQty
             });
             rec.commitLine({ sublistId });
             start = new Date(start.getTime() + interval * msPerDay);
@@ -289,6 +297,7 @@ define(["require", "exports", "N/currentRecord", "N/ui/dialog"], function (requi
             sublistId: 'custpage_schedule_sublist'
         });
         let totalQty = 0;
+        var previousReleaseDate = null;
         const startDate = new Date(currentRecord.getValue({ fieldId: 'custpage_start_date' }));
         const endDate = new Date(currentRecord.getValue({ fieldId: 'custpage_end_date' }));
         for (let i = 0; i < totalRows; i++) {
@@ -310,6 +319,15 @@ define(["require", "exports", "N/currentRecord", "N/ui/dialog"], function (requi
                 });
                 return false;
             }
+            if (previousReleaseDate && releaseDate <= previousReleaseDate) {
+                dialog_1.default.alert({
+                    title: 'Release Date Order Error',
+                    message: `Please Check:\n Line ${i + 1}: Release date ${releaseDateStr} should be after the previous date (${previousReleaseDate.toDateString()}).`
+                });
+                return false;
+            }
+            // Track last date for next iteration comparison
+            previousReleaseDate = releaseDate;
             totalQty += releaseQty;
         }
         const inputQty = parseInt(String(currentRecord.getValue({
