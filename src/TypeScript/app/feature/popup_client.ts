@@ -3,9 +3,25 @@
  * @NScriptType ClientScript
  */
 
-import * as currentRecord from 'N/currentRecord';
+
+/**
+ * Author - Ashutosh Mohanty
+ */
 import * as log from 'N/log';
 import dialog from 'N/ui/dialog';
+
+
+import * as currentRecord from 'N/currentRecord';
+
+type CurrentRecordInstance = ReturnType<typeof currentRecord.get>;
+
+interface FieldChangedContext {
+    sublistId: string;
+    fieldId: string;
+    line?: number;
+    currentRecord: CurrentRecordInstance;
+}
+
 declare function nlExtOpenWindow(url: string, name: string, width: number, height: number): void;
 
 declare global {
@@ -132,7 +148,7 @@ export function exportScheduleToCSV() {
 
 
 
-export const fieldChanged: ClientScript['fieldChanged'] = (context) => {
+export function fieldChanged(context: FieldChangedContext): void {
     const { sublistId, fieldId } = context;
 
     if (sublistId !== 'custpage_schedule_sublist' || fieldId !== 'custpage_so_open_checkbox') {
@@ -170,10 +186,16 @@ export const fieldChanged: ClientScript['fieldChanged'] = (context) => {
 
 
 
+
+
+
+
 export function pageInit(context: any) {
 
     // ✅ Populate fields and schedule lines
     try {
+
+
         const rec = currentRecord.get();
 
         if (window.scheduleMeta) {
@@ -210,9 +232,6 @@ export function pageInit(context: any) {
         console.error('pageInit error:', e.message);
     }
 }
-
-
-
 /*export function autoGenerateSchedule() {
     if (window.isGenerated) {
         alert('Schedule has already been auto-generated.');
@@ -412,7 +431,7 @@ export async function autoGenerateSchedule() {
             start = addMonths(start, 3);
         } else {
             start = new Date(start.getTime() + interval * msPerDay);
-       }
+        }
 
 
         // Smooth UI refresh using await
@@ -435,18 +454,6 @@ export async function autoGenerateSchedule() {
 
     window.isGenerated = true;
 }
-
-
-
-
-
-
-
-
-
-
-
-
 export function saveScheduleToCache() {
     try {
         const rec = currentRecord.get();
@@ -483,7 +490,7 @@ export function saveScheduleToCache() {
                 line: i
             });
 
-            const qty = parseInt(qtyStr, 10);
+            const qty = parseInt(String(qtyStr), 10);
             let salesOrderId = '';
             if (typeof salesOrderUrl === 'string') {
                 const match = salesOrderUrl.match(/id=(\d+)/);
@@ -537,7 +544,7 @@ export function saveScheduleToCache() {
 
 
 
-// ✅ Helper: Convert to M/D/YYYY format (NetSuite-native)
+// Helper: Convert to M/D/YYYY format (NetSuite-native)
 function formatLocalDate(input: any): string {
     const d = new Date(input);
     const m = d.getMonth() + 1;
@@ -637,8 +644,6 @@ export function saveRecord(context: any): boolean {
 
     return true;
 }
-
-
 
 
 

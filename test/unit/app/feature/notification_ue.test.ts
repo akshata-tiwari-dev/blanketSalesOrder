@@ -19,13 +19,13 @@ jest.mock('N/runtime', () => ({
     getCurrentUser: jest.fn()
 }));
 
-import { afterSubmit } from '@app/feature/email';
+import { afterSubmit } from '@app/feature/notification_ue';
 import * as email from 'N/email';
 import * as record from 'N/record';
 import * as runtime from 'N/runtime';
 import * as log from 'N/log';
 
-describe('email.ts - afterSubmit', () => {
+describe('notification_ue.ts - afterSubmit', () => {
     beforeEach(() => {
         jest.clearAllMocks();
     });
@@ -130,4 +130,27 @@ describe('email.ts - afterSubmit', () => {
         expect(email.send).not.toHaveBeenCalled();
         expect(log.debug).toHaveBeenCalledWith('No email found on customer', '123');
     });
+    it('should log error if customer record loading fails', () => {
+        (record.load as unknown as jest.Mock).mockImplementation(() => {
+            throw new Error('Database failure');
+        });
+
+        const mockContext: any = {
+            type: 'create',
+            UserEventType: { DELETE: 'delete' },
+            newRecord: {
+                getValue: jest.fn(({ fieldId }) => {
+                    if (fieldId === 'custrecordnotify') return true;
+                    if (fieldId === 'custrecord_customer') return '123';
+                    if (fieldId === 'id') return 'B123';
+                    return null;
+                })
+            }
+        };
+
+        afterSubmit(mockContext);
+
+        expect(log.error).toHaveBeenCalledWith('Error sending email', 'Database failure');
+    });
+
 });

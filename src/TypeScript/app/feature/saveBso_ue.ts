@@ -2,7 +2,9 @@
  * @NApiVersion 2.1
  * @NScriptType UserEventScript
  */
-
+/**
+ * Author - Ashutosh Mohanty
+ */
 import { EntryPoints } from 'N/types';
 import * as record from 'N/record';
 import * as cache from 'N/cache';
@@ -10,24 +12,30 @@ import * as log from 'N/log';
 import * as search from 'N/search';
 import * as format from 'N/format';
 
+/**
+ * After Submit Trigger
+ * Handles item schedule sync with cache and updates related custom records.
+ *
+ * @param context - User event context
+ */
 export const afterSubmit: EntryPoints.UserEvent.afterSubmit = (context) => {
     if (context.type === context.UserEventType.DELETE) return;
 
-    const rec = context.newRecord;
+    const rec   = context.newRecord;
     const bsoId = rec.id;
 
     const reverseCache = cache.getCache({
-        name: 'item_schedule_latest',
+        name:  'item_schedule_latest',
         scope: cache.Scope.PUBLIC
     });
 
     const schedCache = cache.getCache({
-        name: 'item_schedule_cache',
+        name:  'item_schedule_cache',
         scope: cache.Scope.PUBLIC
     });
 
     const lineSearch = search.create({
-        type: 'customrecord_item',
+        type:    'customrecord_item',
         filters: [['custrecord_bso_item_sublist_link', 'anyof', bsoId]],
         columns: ['internalid', 'custrecord_itemid']
     });
@@ -42,17 +50,17 @@ export const afterSubmit: EntryPoints.UserEvent.afterSubmit = (context) => {
         }
 
         const scheduleCode = reverseCache.get({
-            key: `last-schedule-for-item-${itemId}`,
-            loader: () => null
+            key:    `last-schedule-for-item-${itemId}`,
+            loader: () => ''
         });
 
         let isCacheLoaded = false;
-        let rawData = null;
+        let rawData       = null;
 
         if (scheduleCode) {
             rawData = schedCache.get({
-                key: scheduleCode,
-                loader: () => null
+                key:    scheduleCode,
+                loader: () => ''
             });
 
             if (rawData) {
@@ -65,14 +73,16 @@ export const afterSubmit: EntryPoints.UserEvent.afterSubmit = (context) => {
             log.debug('No schedule code in cache', `Item ${itemId}`);
             try {
                 const itemLine = record.load({
-                    type: 'customrecord_item',
-                    id: lineId,
-                    isDynamic: true
+                    type:       'customrecord_item',
+                    id:         lineId,
+                    isDynamic:  true
                 });
+
                 itemLine.setValue({
                     fieldId: 'custrecord_gensch',
-                    value: false
+                    value:   false
                 });
+
                 itemLine.save();
                 log.debug('Unchecked gensch despite no cache', { itemId, lineId });
             } catch (e: any) {
@@ -89,18 +99,25 @@ export const afterSubmit: EntryPoints.UserEvent.afterSubmit = (context) => {
             return true;
         }
 
-        const { scheduleData = [], startDate, endDate, quantity, releaseFreq } = parsed;
+        const {
+            scheduleData = [],
+            startDate,
+            endDate,
+            quantity,
+            releaseFreq
+        } = parsed;
 
+        // Update item line with metadata from cache
         try {
             const itemLine = record.load({
-                type: 'customrecord_item',
-                id: lineId,
+                type:      'customrecord_item',
+                id:        lineId,
                 isDynamic: true
             });
 
             itemLine.setValue({
                 fieldId: 'custrecord_gensch',
-                value: false
+                value:   false
             });
 
             if (startDate) {
@@ -108,12 +125,11 @@ export const afterSubmit: EntryPoints.UserEvent.afterSubmit = (context) => {
                 if (isCacheLoaded) {
                     start.setTime(start.getTime() + 0);
                 }
-
                 itemLine.setValue({
                     fieldId: 'custrecord_stdate',
-                    value: format.parse({
+                    value:   format.parse({
                         value: start,
-                        type: format.Type.DATE
+                        type:  format.Type.DATE
                     })
                 });
             }
@@ -123,12 +139,11 @@ export const afterSubmit: EntryPoints.UserEvent.afterSubmit = (context) => {
                 if (isCacheLoaded) {
                     end.setTime(end.getTime() + 0);
                 }
-
                 itemLine.setValue({
                     fieldId: 'custrecord_enddate',
-                    value: format.parse({
+                    value:   format.parse({
                         value: end,
-                        type: format.Type.DATE
+                        type:  format.Type.DATE
                     })
                 });
             }
@@ -136,26 +151,28 @@ export const afterSubmit: EntryPoints.UserEvent.afterSubmit = (context) => {
             if (quantity) {
                 itemLine.setValue({
                     fieldId: 'custrecord_quantity',
-                    value: Number(quantity)
+                    value:   Number(quantity)
                 });
             }
 
             if (releaseFreq) {
                 itemLine.setValue({
                     fieldId: 'custrecord_freq',
-                    value: releaseFreq
+                    value:   releaseFreq
                 });
             }
 
             itemLine.save();
             log.debug('Updated item line metadata', { lineId, itemId });
+
         } catch (e: any) {
             log.error('Failed to update item line metadata', e.message || e);
         }
 
+        // Delete old schedules linked to item line
         try {
             const existingSchedules = search.create({
-                type: 'customrecord_schedule',
+                type:    'customrecord_schedule',
                 filters: [['custrecord_schsublink', 'anyof', lineId]],
                 columns: ['internalid']
             });
@@ -165,7 +182,7 @@ export const afterSubmit: EntryPoints.UserEvent.afterSubmit = (context) => {
                 try {
                     record.delete({
                         type: 'customrecord_schedule',
-                        id: schedId
+                        id:   schedId
                     });
                     log.debug('Deleted existing schedule', `ID: ${schedId} for Item Line: ${lineId}`);
                 } catch (e: any) {
@@ -177,11 +194,12 @@ export const afterSubmit: EntryPoints.UserEvent.afterSubmit = (context) => {
             log.error('Error during schedule cleanup', e.message);
         }
 
+        // Create new schedules from cache
         let i = 1;
         for (const entry of scheduleData) {
             try {
                 const sched = record.create({
-                    type: 'customrecord_schedule',
+                    type:      'customrecord_schedule',
                     isDynamic: true
                 });
 
@@ -192,13 +210,13 @@ export const afterSubmit: EntryPoints.UserEvent.afterSubmit = (context) => {
 
                 const releaseDate = format.parse({
                     value: jsDate,
-                    type: format.Type.DATE
+                    type:  format.Type.DATE
                 });
 
-                sched.setValue({ fieldId: 'name', value: `Schedule No-${i}-Item ID-${itemId}` });
+                sched.setValue({ fieldId: 'name',                 value: `Schedule No-${i}-Item ID-${itemId}` });
                 sched.setValue({ fieldId: 'custrecord_schsublink', value: lineId });
-                sched.setValue({ fieldId: 'custrecordstdate', value: releaseDate });
-                sched.setValue({ fieldId: 'custrecordqtyy', value: entry.qty });
+                sched.setValue({ fieldId: 'custrecordstdate',      value: releaseDate });
+                sched.setValue({ fieldId: 'custrecordqtyy',        value: entry.qty });
 
                 const schedId = sched.save();
                 log.debug('Created schedule', `ID: ${schedId}, Item: ${itemId}, Qty: ${entry.qty}`);
@@ -208,12 +226,14 @@ export const afterSubmit: EntryPoints.UserEvent.afterSubmit = (context) => {
             i++;
         }
 
-        // 🧹 Clean cache after first successful use
+        // Clean cache after processing
         try {
             reverseCache.remove({ key: `last-schedule-for-item-${itemId}` });
+
             if (scheduleCode) {
                 schedCache.remove({ key: scheduleCode });
             }
+
             log.debug('Cleaned cache', { itemId, scheduleCode });
         } catch (e: any) {
             log.error('Failed to clean cache', e.message || e);
@@ -222,3 +242,4 @@ export const afterSubmit: EntryPoints.UserEvent.afterSubmit = (context) => {
         return true;
     });
 };
+

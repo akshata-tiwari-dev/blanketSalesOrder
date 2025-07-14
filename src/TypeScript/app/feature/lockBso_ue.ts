@@ -3,8 +3,20 @@
  * @NScriptType UserEventScript
  */
 
+/**
+ * Author - Ashutosh Mohanty
+ */
+
 import * as serverWidget from 'N/ui/serverWidget';
 import * as log from 'N/log';
+
+/**
+ * beforeLoad - Disables fields and sublist if status is submitted/approved
+ *
+ * @param context.type        - Event type (create/edit/view)
+ * @param context.form        - Form object to modify
+ * @param context.newRecord   - Current record
+ */
 function beforeLoad(context: {
     type: string;
     form: serverWidget.Form;
@@ -13,10 +25,11 @@ function beforeLoad(context: {
 }) {
     if (context.type === 'edit' || context.type === 'view') {
         const form = context.form;
-        const rec = context.newRecord;
+        const rec  = context.newRecord;
 
         const status = rec.getValue({ fieldId: 'custrecord127' });
 
+        // Disable fields if status is 1 (Submitted) or 3 (Approved)
         if (status == 1 || status == 3) {
             const fieldIds = [
                 'custrecord_customer',
@@ -27,7 +40,7 @@ function beforeLoad(context: {
                 'custrecord127'
             ];
 
-            fieldIds.forEach(function (fieldId) {
+            fieldIds.forEach((fieldId) => {
                 const field = form.getField({ id: fieldId });
                 if (field) {
                     field.updateDisplayType({
@@ -37,26 +50,26 @@ function beforeLoad(context: {
             });
 
             const sublistId = 'recmachcustrecord_bso_item_sublist_link';
+
             try {
-                var sublist = form.getSublist({ id: sublistId });
+                const sublist = form.getSublist({ id: sublistId });
+
                 if (!sublist) {
                     log.debug('Sublist not found', sublistId);
                 } else {
-                    var sublistFieldIds = ['custrecord_itemid', 'custrecord_rate', 'custrecord_gensch'];
-                    var checkboxFields = ['custrecord_gensch'];
+                    const sublistFieldIds = ['custrecord_itemid', 'custrecord_rate', 'custrecord_gensch'];
+                    const checkboxFields  = ['custrecord_gensch'];
 
-                    for (var j = 0; j < sublistFieldIds.length; j++) {
-                        var subFieldId = sublistFieldIds[j];
-                        var subField = sublist.getField({ id: subFieldId });
+                    for (let j = 0; j < sublistFieldIds.length; j++) {
+                        const subFieldId = sublistFieldIds[j];
+                        const subField   = sublist.getField({ id: subFieldId });
 
                         if (subField) {
-                            var displayType = checkboxFields.indexOf(subFieldId) !== -1
+                            const displayType = checkboxFields.includes(subFieldId)
                                 ? serverWidget.FieldDisplayType.NORMAL
                                 : serverWidget.FieldDisplayType.DISABLED;
 
-                            subField.updateDisplayType({
-                                displayType: displayType
-                            });
+                            subField.updateDisplayType({ displayType });
                         } else {
                             log.debug('Sublist field not found', subFieldId);
                         }
@@ -66,15 +79,16 @@ function beforeLoad(context: {
                 log.error('Error while accessing sublist', e);
             }
 
+            // Remove Submit button to prevent accidental edits
             try {
                 form.removeButton({ id: 'submit' });
             } catch (e) {
-                // Silent fail
+                // button might not exist in all contexts
             }
         }
     }
 }
 
 export = {
-    beforeLoad:beforeLoad
+    beforeLoad: beforeLoad
 };

@@ -2,6 +2,11 @@
  * @NApiVersion 2.1
  * @NScriptType Suitelet
  */
+
+/**
+ * Author - Ashutosh Mohanty
+ */
+
 import serverWidget from 'N/ui/serverWidget';
 import * as record from 'N/record';
 import * as log from 'N/log';
@@ -12,65 +17,64 @@ import { EntryPoints } from 'N/types';
 import * as url from 'N/url';
 import * as runtime from 'N/runtime';
 
-
 interface ScheduleEntry {
     date: string;
     qty: number;
     salesOrderId?: string;
 }
+
 let customerId = '', projectName = '', locationName = '';
 
 export function onRequest(context: EntryPoints.Suitelet.onRequestContext) {
-    const {request, response} = context;
+    const { request, response } = context;
 
     if (request.method === 'GET') {
         const itemId = request.parameters.itemid || '';
         const bsoId = request.parameters.bsoId || '';
-        const reverseCache = cache.getCache({name: 'item_schedule_latest', scope: cache.Scope.PUBLIC});
-        const scheduleCache = cache.getCache({name: 'item_schedule_cache', scope: cache.Scope.PUBLIC});
+
+        const reverseCache = cache.getCache({ name: 'item_schedule_latest', scope: cache.Scope.PUBLIC });
+        const scheduleCache = cache.getCache({ name: 'item_schedule_cache', scope: cache.Scope.PUBLIC });
+
         let isReadOnly = false;
-        let cachedScheduleData: ScheduleEntry[] = [], cachedStartDate = '', cachedEndDate = '', cachedQuantity = '',
-            cachedReleaseFreq = '', scheduleCode = '';
+        let cachedScheduleData: ScheduleEntry[] = [];
+        let cachedStartDate = '', cachedEndDate = '', cachedQuantity = '', cachedReleaseFreq = '', scheduleCode = '';
 
-        // Load from DB (edit)
         if (bsoId) {
-            const bsoStatus = record.load({
-                type: 'customrecord_bso',
-                id: bsoId,
-                isDynamic: false
-            }).getValue({ fieldId: 'custrecord127' });
+            const bsoStatus = record.load({ type: 'customrecord_bso', id: bsoId, isDynamic: false })
+                .getValue({ fieldId: 'custrecord127' });
 
-            if (bsoStatus == 1 || bsoStatus == 3) {
-                isReadOnly = true;
-            }
-            const bsoRec = record.load({
-                type: 'customrecord_bso',
-                id: bsoId,
-                isDynamic: false
-            });
+            if (bsoStatus == 1 || bsoStatus == 3) isReadOnly = true;
+
+            const bsoRec = record.load({ type: 'customrecord_bso', id: bsoId, isDynamic: false });
+
             const rawCustomer = bsoRec.getText({ fieldId: 'custrecord_customer' });
             customerId = Array.isArray(rawCustomer) ? rawCustomer.join(', ') : (rawCustomer || '');
+
             const rawProject = bsoRec.getText({ fieldId: 'custrecord_project' });
             projectName = Array.isArray(rawProject) ? rawProject.join(', ') : (rawProject || '');
 
             const rawLocation = bsoRec.getText({ fieldId: 'custrecord_loc' });
             locationName = Array.isArray(rawLocation) ? rawLocation.join(', ') : (rawLocation || '');
 
-            const sublistItemLineSearch = search.create({
+            const itemSearch = search.create({
                 type: 'customrecord_item',
-                filters: [['custrecord_itemid', 'anyof', itemId], 'AND', ['custrecord_bso_item_sublist_link', 'anyof', bsoId]],
+                filters: [
+                    ['custrecord_itemid', 'anyof', itemId],
+                    'AND',
+                    ['custrecord_bso_item_sublist_link', 'anyof', bsoId]
+                ],
                 columns: ['custrecord_stdate', 'custrecord_enddate', 'custrecord_quantity', 'custrecord_freq']
             });
 
-            const sublistItemLineResult = sublistItemLineSearch.run().getRange({start: 0, end: 1})[0];
-            if (sublistItemLineResult) {
-                cachedStartDate = sublistItemLineResult.getValue('custrecord_stdate') as string;
-                cachedEndDate = sublistItemLineResult.getValue('custrecord_enddate') as string;
-                cachedQuantity = sublistItemLineResult.getValue('custrecord_quantity') as string;
-                cachedReleaseFreq = sublistItemLineResult.getValue('custrecord_freq') as string;
+            const itemResult = itemSearch.run().getRange({ start: 0, end: 1 })[0];
+            if (itemResult) {
+                cachedStartDate = itemResult.getValue('custrecord_stdate') as string;
+                cachedEndDate = itemResult.getValue('custrecord_enddate') as string;
+                cachedQuantity = itemResult.getValue('custrecord_quantity') as string;
+                cachedReleaseFreq = itemResult.getValue('custrecord_freq') as string;
             }
 
-            const scheduleDataSearch = search.create({
+            const schedSearch = search.create({
                 type: 'customrecord_schedule',
                 filters: [
                     ['custrecord_schsublink.custrecord_itemid', 'anyof', itemId],
@@ -80,8 +84,8 @@ export function onRequest(context: EntryPoints.Suitelet.onRequestContext) {
                 columns: ['custrecordstdate', 'custrecordqtyy', 'custrecord_so_link']
             });
 
-            const results = scheduleDataSearch.run().getRange({start: 0, end: 100}) || [];
-            for (const row of results) {
+            const schedResults = schedSearch.run().getRange({ start: 0, end: 100 }) || [];
+            for (const row of schedResults) {
                 cachedScheduleData.push({
                     date: row.getValue('custrecordstdate') as string,
                     qty: parseInt(row.getValue('custrecordqtyy') as string),
@@ -89,13 +93,10 @@ export function onRequest(context: EntryPoints.Suitelet.onRequestContext) {
                 });
             }
         } else {
-            // Load from cache (new BSO)
-            const latestScheduleCode = reverseCache.get({
-                key: `last-schedule-for-item-${itemId}`,
-                loader: () => ''
-            }) as string;
+            const latestScheduleCode = reverseCache.get({ key: `last-schedule-for-item-${itemId}`, loader: () => '' }) as string;
+
             if (latestScheduleCode) {
-                const cachedData = scheduleCache.get({key: latestScheduleCode, loader: () => ''}) as string;
+                const cachedData = scheduleCache.get({ key: latestScheduleCode, loader: () => '' }) as string;
                 if (cachedData) {
                     const parsed = JSON.parse(cachedData);
                     cachedScheduleData = parsed.scheduleData || [];
@@ -108,24 +109,28 @@ export function onRequest(context: EntryPoints.Suitelet.onRequestContext) {
             }
         }
 
-        const form = serverWidget.createForm({title: 'Schedule Generator'});
+        const form = serverWidget.createForm({ title: 'Schedule Generator' });
         form.clientScriptModulePath = './clientscript.js';
 
-// Form Fields
+        // Form fields, sublist, buttons
         form.addField({
             id: 'custpage_start_date',
             label: 'Start Date',
             type: serverWidget.FieldType.DATE
         }).updateDisplayType({
             displayType: isReadOnly ? serverWidget.FieldDisplayType.DISABLED : serverWidget.FieldDisplayType.NORMAL
-        }).defaultValue = cachedStartDate ? new Date(cachedStartDate) : null;
+        }).defaultValue = cachedStartDate
+            ? format.format({ value: new Date(cachedStartDate), type: format.Type.DATE })
+            : '';
         form.addField({
             id: 'custpage_end_date',
             label: 'End Date',
             type: serverWidget.FieldType.DATE
         }).updateDisplayType({
             displayType: isReadOnly ? serverWidget.FieldDisplayType.DISABLED : serverWidget.FieldDisplayType.NORMAL
-        }).defaultValue = cachedEndDate ? new Date(cachedEndDate) : null;
+        }).defaultValue = cachedEndDate
+            ? format.format({ value: new Date(cachedEndDate), type: format.Type.DATE })
+            : '';
         form.addField({
             id: 'custpage_quantity',
             label: 'Quantity',
@@ -200,7 +205,7 @@ export function onRequest(context: EntryPoints.Suitelet.onRequestContext) {
                 line,
                 value: format.format({value: new Date(entry.date), type: format.Type.DATE})
             });
-            sublist.setSublistValue({id: 'custpage_release_qty', line, value: entry.qty});
+            sublist.setSublistValue({id: 'custpage_release_qty', line, value: String(entry.qty)});
             if (entry.salesOrderId) {
                 const resolvedUrl = url.resolveRecord({
                     recordType: 'salesorder',
@@ -277,6 +282,7 @@ export function onRequest(context: EntryPoints.Suitelet.onRequestContext) {
         try {
             const body = request.body?.trim();
             log.debug('Raw request body (POST)', body);
+
             if (!body) throw new Error('No data received.');
 
             const {
@@ -284,9 +290,7 @@ export function onRequest(context: EntryPoints.Suitelet.onRequestContext) {
                 startDate = '', endDate = '', quantity = '', releaseFreq = ''
             } = JSON.parse(body);
 
-            if (!itemId || !Array.isArray(scheduleData)) {
-                throw new Error('Missing or invalid itemId or scheduleData');
-            }
+            if (!itemId || !Array.isArray(scheduleData)) throw new Error('Missing or invalid itemId or scheduleData');
 
             if (bsoId) {
                 const itemLineResult = search.create({
@@ -317,43 +321,34 @@ export function onRequest(context: EntryPoints.Suitelet.onRequestContext) {
                 itemRec.setValue({ fieldId: 'custrecord_gensch', value: false });
                 itemRec.save();
 
-                // Delete existing schedules
                 search.create({
                     type: 'customrecord_schedule',
                     filters: [['custrecord_schsublink', 'anyof', lineId]],
                     columns: ['internalid']
                 }).run().each(result => {
-                    record.delete({
-                        type: 'customrecord_schedule',
-                        id: result.getValue({ name: 'internalid' }) as string
-                    });
+                    record.delete({ type: 'customrecord_schedule', id: result.getValue({ name: 'internalid' }) as string });
                     return true;
                 });
 
-                // Create new schedules
                 let i = 1;
                 for (const entry of scheduleData) {
                     const sched = record.create({ type: 'customrecord_schedule', isDynamic: true });
                     sched.setValue({ fieldId: 'name', value: `Schedule No-${i}-Item ID-${itemId}` });
                     sched.setValue({ fieldId: 'custrecord_schsublink', value: lineId });
                     sched.setValue({ fieldId: 'custrecordqtyy', value: entry.qty });
-                    if (entry.salesOrderId) {
-                        sched.setValue({ fieldId: 'custrecord_so_link', value: entry.salesOrderId });
-                    }
-                    if (entry.date) {
-                        sched.setValue({
-                            fieldId: 'custrecordstdate',
-                            value: format.parse({ value: entry.date, type: format.Type.DATE })
-                        });
-                    }
+                    if (entry.salesOrderId) sched.setValue({ fieldId: 'custrecord_so_link', value: entry.salesOrderId });
+                    if (entry.date) sched.setValue({
+                        fieldId: 'custrecordstdate',
+                        value: format.parse({ value: entry.date, type: format.Type.DATE })
+                    });
                     sched.save();
                     i++;
                 }
 
                 log.audit('Schedule DB save complete', { bsoId, itemId });
                 response.write(JSON.stringify({ success: true, message: 'Schedule saved to database.' }));
+
             } else {
-                // Generate a fallback scheduleCode if missing
                 const finalCode = scheduleCode || `${itemId}-${Date.now()}`;
                 const payload = { scheduleData, startDate, endDate, quantity, releaseFreq };
 
@@ -366,10 +361,10 @@ export function onRequest(context: EntryPoints.Suitelet.onRequestContext) {
                 log.audit('Schedule cached', { itemId, scheduleCode: finalCode });
                 response.write(JSON.stringify({ success: true, message: `Schedule cached under code: ${finalCode}` }));
             }
+
         } catch (e: any) {
             log.error('Unhandled POST error', e.message || e);
             response.write(JSON.stringify({ success: false, message: e.message || 'Unexpected error' }));
         }
     }
-
 }

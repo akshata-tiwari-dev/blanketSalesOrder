@@ -1,6 +1,6 @@
 import * as query from 'N/query';
 import * as log from 'N/log';
-import { getInputData,  map, reduce } from '@app/feature/MapReduce';
+import { getInputData,  map, reduce } from '@app/feature/createSO_mr';
 import * as record from 'N/record';
 
 

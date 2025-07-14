@@ -23,14 +23,14 @@ jest.mock('N/log', () => ({
     error: jest.fn()
 }));
 
-import { afterSubmit } from '@app/feature/bsoafter'; // Adjust to your actual path
+import { afterSubmit } from '@app/feature/saveBso_ue'; // Adjust to your actual path
 import * as record from 'N/record';
 import * as search from 'N/search';
 import * as cache from 'N/cache';
 import * as format from 'N/format';
 import * as log from 'N/log';
 
-describe('bsoafter.ts - afterSubmit', () => {
+describe('saveBso_ue.ts - afterSubmit', () => {
     const mockGetCache = cache.getCache as unknown as jest.Mock;
 
     beforeEach(() => {
