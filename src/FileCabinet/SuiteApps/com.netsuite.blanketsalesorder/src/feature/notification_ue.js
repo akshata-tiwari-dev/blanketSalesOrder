@@ -34,16 +34,18 @@ define(["require", "exports", "N/email", "N/runtime", "N/record", "N/log"], func
     record = __importStar(record);
     log = __importStar(log);
     const afterSubmit = (context) => {
+        // Exit early on DELETE
         if (context.type === context.UserEventType.DELETE)
             return;
         const rec = context.newRecord;
-        const sendEmail = rec.getValue({ fieldId: 'custrecordnotify' }); //
-        const customerId = rec.getValue({ fieldId: 'custrecord_customer' }); // ✅ standard field holding customer reference
+        const sendEmail = rec.getValue({ fieldId: 'custrecordnotify' }); //  checkbox: whether to send email
+        const customerId = rec.getValue({ fieldId: 'custrecord_customer' }); //  reference to customer record
         if (!sendEmail || !customerId) {
             log.debug('Email not triggered', 'Checkbox not marked or no customer linked');
             return;
         }
         try {
+            // Load customer to fetch email address
             const customerRec = record.load({
                 type: record.Type.CUSTOMER,
                 id: customerId
@@ -54,6 +56,7 @@ define(["require", "exports", "N/email", "N/runtime", "N/record", "N/log"], func
                 return;
             }
             const tranId = rec.getValue({ fieldId: 'id' });
+            // Send transactional email
             email.send({
                 author: runtime.getCurrentUser().id,
                 recipients: emailTo,

@@ -32,29 +32,40 @@ define(["require", "exports", "N/query", "N/log", "N/record"], function (require
     query = __importStar(query);
     log = __importStar(log);
     record = __importStar(record);
-    // Format date to YYYY-MM-DD
+    // ===================== Utility =====================
+    /**
+     * Converts a Date to YYYY-MM-DD format
+     * @param d - Date object
+     * @returns formatted string
+     */
     function formatDate(d) {
         return d.toISOString().split('T')[0];
     }
-    // Input stage: Get records matching today's date and approved status
+    // ===================== getInputData =====================
+    /**
+     * Fetches all schedule records with today's date and approved BSO
+     */
     const getInputData = () => {
         try {
             const today = new Date();
             const isoToday = today.toISOString().split('T')[0];
             const queryString = `
-            SELECT sch.id                  AS schedule_id,
-                   sch.custrecordstdate    AS release_date,
-                   sch.custrecordqtyy      AS quantity,
-                   items.id                AS item_line_id,
-                   items.custrecord_itemid AS item_id,
-                   items.custrecord_rate   AS rate,
-                   bso.custrecord_loc      AS location,
-                   bso.id                  AS bso_id,
-                   bso.custrecord_customer AS customer_id,
-                bso.custrecord_memo     AS bso_memo
+            SELECT
+                sch.id                     AS schedule_id,
+                sch.custrecordstdate       AS release_date,
+                sch.custrecordqtyy         AS quantity,
+                items.id                   AS item_line_id,
+                items.custrecord_itemid    AS item_id,
+                items.custrecord_rate      AS rate,
+                bso.custrecord_loc         AS location,
+                bso.id                     AS bso_id,
+                bso.custrecord_customer    AS customer_id,
+                bso.custrecord_memo        AS bso_memo
             FROM customrecord_schedule sch
-                     JOIN customrecord_item items ON sch.custrecord_schsublink = items.id
-                     JOIN customrecord_bso bso ON items.custrecord_bso_item_sublist_link = bso.id
+                     JOIN customrecord_item items
+                          ON sch.custrecord_schsublink = items.id
+                     JOIN customrecord_bso bso
+                          ON items.custrecord_bso_item_sublist_link = bso.id
             WHERE TO_CHAR(sch.custrecordstdate, 'YYYY-MM-DD') = '${isoToday}'
               AND bso.custrecord127 = 1
         `;
@@ -66,10 +77,8 @@ define(["require", "exports", "N/query", "N/log", "N/record"], function (require
                 log.debug('First Result Sample', JSON.stringify(results[0]));
                 return results.map(result => JSON.stringify(result));
             }
-            else {
-                log.audit('No Results Found', 'SuiteQL returned 0 rows');
-                return [];
-            }
+            log.audit('No Results Found', 'SuiteQL returned 0 rows');
+            return [];
         }
         catch (e) {
             log.error('SuiteQL Error', e.message);
@@ -77,7 +86,10 @@ define(["require", "exports", "N/query", "N/log", "N/record"], function (require
         }
     };
     exports.getInputData = getInputData;
-    // Map stage: Group by customer ID
+    // ===================== Map =====================
+    /**
+     * Groups each schedule entry by customer
+     */
     const map = (context) => {
         const data = JSON.parse(context.value);
         const scheduleId = data.schedule_id;
@@ -95,7 +107,10 @@ define(["require", "exports", "N/query", "N/log", "N/record"], function (require
         });
     };
     exports.map = map;
-    // Reduce stage: Create sales order per customer
+    // ===================== Reduce =====================
+    /**
+     * For each customer, creates a sales order with scheduled items
+     */
     const reduce = (context) => {
         const customerId = context.key;
         const items = context.values.map(val => JSON.parse(val));
@@ -110,7 +125,7 @@ define(["require", "exports", "N/query", "N/log", "N/record"], function (require
             salesOrder.setValue({ fieldId: 'trandate', value: new Date(items[0].release_date) });
             salesOrder.setValue({ fieldId: 'custbodyiscreated', value: true });
             salesOrder.setValue({ fieldId: 'memo', value: items[0].bso_memo || 'Auto-generated SO' });
-            // salesOrder.setValue({fieldId: 'tobeemailed', value: true});
+            // Optional: Email configuration
             try {
                 const customerRec = record.load({
                     type: record.Type.CUSTOMER,
@@ -126,8 +141,14 @@ define(["require", "exports", "N/query", "N/log", "N/record"], function (require
                 }
             }
             catch (e) {
-                log.error('Customer email fetch failed', e.message);
+                if (e instanceof Error) {
+                    log.error('Customer email fetch failed', e.message);
+                }
+                else {
+                    log.error('Customer email fetch failed', JSON.stringify(e));
+                }
             }
+            // Add items to the sales order
             for (const entry of items) {
                 salesOrder.selectNewLine({ sublistId: 'item' });
                 const safeRate = entry.rate && !isNaN(entry.rate) ? Number(entry.rate) : 0;
@@ -136,9 +157,10 @@ define(["require", "exports", "N/query", "N/log", "N/record"], function (require
                 salesOrder.setCurrentSublistValue({ sublistId: 'item', fieldId: 'rate', value: safeRate });
                 salesOrder.commitLine({ sublistId: 'item' });
             }
+            // Save and log
             salesOrderId = salesOrder.save();
             log.audit('Sales Order Created', `Customer: ${customerId}, ID: ${salesOrderId}`);
-            // Link schedule records to the created Sales Order
+            // Link each schedule to this SO
             for (const entry of items) {
                 if (entry.schedule_id) {
                     record.submitFields({

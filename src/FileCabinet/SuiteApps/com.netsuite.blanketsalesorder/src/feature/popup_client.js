@@ -28,12 +28,12 @@ var __importStar = (this && this.__importStar) || function (mod) {
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
-define(["require", "exports", "N/currentRecord", "N/ui/dialog"], function (require, exports, currentRecord, dialog_1) {
+define(["require", "exports", "N/ui/dialog", "N/currentRecord"], function (require, exports, dialog_1, currentRecord) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.saveRecord = exports.saveScheduleToCache = exports.autoGenerateSchedule = exports.pageInit = exports.fieldChanged = exports.exportScheduleToCSV = void 0;
-    currentRecord = __importStar(currentRecord);
     dialog_1 = __importDefault(dialog_1);
+    currentRecord = __importStar(currentRecord);
     window.isGenerated = false;
     function injectProgressBar() {
         if (document.getElementById('progress-modal'))
@@ -122,7 +122,7 @@ define(["require", "exports", "N/currentRecord", "N/ui/dialog"], function (requi
         URL.revokeObjectURL(url);
     }
     exports.exportScheduleToCSV = exportScheduleToCSV;
-    const fieldChanged = (context) => {
+    function fieldChanged(context) {
         const { sublistId, fieldId } = context;
         if (sublistId !== 'custpage_schedule_sublist' || fieldId !== 'custpage_so_open_checkbox') {
             return;
@@ -148,8 +148,9 @@ define(["require", "exports", "N/currentRecord", "N/ui/dialog"], function (requi
             value: false
         });
         rec.commitLine({ sublistId });
-    };
+    }
     exports.fieldChanged = fieldChanged;
+    ;
     function pageInit(context) {
         // ✅ Populate fields and schedule lines
         try {
@@ -426,7 +427,7 @@ define(["require", "exports", "N/currentRecord", "N/ui/dialog"], function (requi
                     fieldId: 'custpage_sales_order_link',
                     line: i
                 });
-                const qty = parseInt(qtyStr, 10);
+                const qty = parseInt(String(qtyStr), 10);
                 let salesOrderId = '';
                 if (typeof salesOrderUrl === 'string') {
                     const match = salesOrderUrl.match(/id=(\d+)/);
@@ -475,7 +476,7 @@ define(["require", "exports", "N/currentRecord", "N/ui/dialog"], function (requi
         }
     }
     exports.saveScheduleToCache = saveScheduleToCache;
-    // ✅ Helper: Convert to M/D/YYYY format (NetSuite-native)
+    // Helper: Convert to M/D/YYYY format (NetSuite-native)
     function formatLocalDate(input) {
         const d = new Date(input);
         const m = d.getMonth() + 1;

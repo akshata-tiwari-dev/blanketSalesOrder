@@ -7,11 +7,19 @@ define(["require", "exports", "N/ui/serverWidget"], function (require, exports, 
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.beforeLoad = void 0;
     const APPROVAL_FIELD_ID = 'custrecord127';
+    /**
+     * beforeLoad - Controls visibility of approval field and sets default value
+     *
+     * @param context.type       - Event type (create/edit/view/etc)
+     * @param context.form       - The form being loaded
+     * @param context.newRecord  - The current record instance
+     */
     function beforeLoad(context) {
         const { form, type, newRecord } = context;
         const approvalField = form.getField({ id: APPROVAL_FIELD_ID });
         if (!approvalField)
             return;
+        // Display or hide approval field based on event type
         switch (type) {
             case context.UserEventType.CREATE:
                 approvalField.updateDisplayType({
@@ -27,6 +35,7 @@ define(["require", "exports", "N/ui/serverWidget"], function (require, exports, 
             default:
                 break;
         }
+        // Default value for approval field is set to 2 (Pending Approval?)
         newRecord.setValue({
             fieldId: APPROVAL_FIELD_ID,
             value: 2

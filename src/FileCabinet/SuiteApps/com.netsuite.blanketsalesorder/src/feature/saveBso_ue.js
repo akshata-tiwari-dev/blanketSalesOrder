@@ -1,7 +1,3 @@
-/**
- * @NApiVersion 2.1
- * @NScriptType UserEventScript
- */
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
     var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -34,6 +30,12 @@ define(["require", "exports", "N/record", "N/cache", "N/log", "N/search", "N/for
     log = __importStar(log);
     search = __importStar(search);
     format = __importStar(format);
+    /**
+     * After Submit Trigger
+     * Handles item schedule sync with cache and updates related custom records.
+     *
+     * @param context - User event context
+     */
     const afterSubmit = (context) => {
         if (context.type === context.UserEventType.DELETE)
             return;
@@ -61,14 +63,14 @@ define(["require", "exports", "N/record", "N/cache", "N/log", "N/search", "N/for
             }
             const scheduleCode = reverseCache.get({
                 key: `last-schedule-for-item-${itemId}`,
-                loader: () => null
+                loader: () => ''
             });
             let isCacheLoaded = false;
             let rawData = null;
             if (scheduleCode) {
                 rawData = schedCache.get({
                     key: scheduleCode,
-                    loader: () => null
+                    loader: () => ''
                 });
                 if (rawData) {
                     isCacheLoaded = true;
@@ -107,6 +109,7 @@ define(["require", "exports", "N/record", "N/cache", "N/log", "N/search", "N/for
                 return true;
             }
             const { scheduleData = [], startDate, endDate, quantity, releaseFreq } = parsed;
+            // Update item line with metadata from cache
             try {
                 const itemLine = record.load({
                     type: 'customrecord_item',
@@ -161,6 +164,7 @@ define(["require", "exports", "N/record", "N/cache", "N/log", "N/search", "N/for
             catch (e) {
                 log.error('Failed to update item line metadata', e.message || e);
             }
+            // Delete old schedules linked to item line
             try {
                 const existingSchedules = search.create({
                     type: 'customrecord_schedule',
@@ -185,6 +189,7 @@ define(["require", "exports", "N/record", "N/cache", "N/log", "N/search", "N/for
             catch (e) {
                 log.error('Error during schedule cleanup', e.message);
             }
+            // Create new schedules from cache
             let i = 1;
             for (const entry of scheduleData) {
                 try {
@@ -212,7 +217,7 @@ define(["require", "exports", "N/record", "N/cache", "N/log", "N/search", "N/for
                 }
                 i++;
             }
-            // 🧹 Clean cache after first successful use
+            // Clean cache after processing
             try {
                 reverseCache.remove({ key: `last-schedule-for-item-${itemId}` });
                 if (scheduleCode) {

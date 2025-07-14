@@ -6,91 +6,98 @@ define(["require", "exports"], function (require, exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.saveRecord = exports.pageInit = void 0;
+    // ===================== Inject Nimbus Success Popup =====================
     function injectNimbusPopup() {
         const div = document.createElement('div');
         div.id = 'nimbus-success-popup';
         div.innerHTML = `
-    <div class="nimbus-toast">
-      <div class="nimbus-icon-wrapper">
-        <svg class="checkmark" viewBox="0 0 52 52">
-          <path class="check" d="M14 27 l10 10 l20 -20" />
-        </svg>
-      </div>
-      <div class="nimbus-text">Blanket Sales Order <br>Saved Successfully</div>
-      <canvas id="nimbus-sparkle-canvas"></canvas>
-    </div>
-  `;
+        <div class="nimbus-toast">
+            <div class="nimbus-icon-wrapper">
+                <svg class="checkmark" viewBox="0 0 52 52">
+                    <path class="check" d="M14 27 l10 10 l20 -20" />
+                </svg>
+            </div>
+            <div class="nimbus-text">
+                Blanket Sales Order <br>Saved Successfully
+            </div>
+            <canvas id="nimbus-sparkle-canvas"></canvas>
+        </div>
+    `;
         document.body.appendChild(div);
     }
+    // ===================== Inject Nimbus Toast Styles =====================
     function injectNimbusCSS() {
         const style = document.createElement('style');
         style.innerHTML = `
-    #nimbus-success-popup {
-      position: fixed;
-      bottom: -200px;
-      left: 50%;
-      transform: translateX(-50%);
-      z-index: 99999;
-      transition: all 0.6s ease-in-out;
-    }
+        #nimbus-success-popup {
+            position: fixed;
+            bottom: -200px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 99999;
+            transition: all 0.6s ease-in-out;
+        }
 
-    .nimbus-toast {
-      background: #111827;
-      color: #a7f3d0;
-      padding: 20px 40px;
-      border-radius: 14px;
-      display: flex;
-      align-items: center;
-      gap: 15px;
-      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
-      font-weight: 600;
-      position: relative;
-      animation: scaleSlideIn 0.6s ease-out;
-    }
+        .nimbus-toast {
+            background: #111827;
+            color: #a7f3d0;
+            padding: 20px 40px;
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+            font-weight: 600;
+            position: relative;
+            animation: scaleSlideIn 0.6s ease-out;
+        }
 
-    .nimbus-icon-wrapper {
-      background: #10b981;
-      border-radius: 50%;
-      padding: 10px;
-    }
+        .nimbus-icon-wrapper {
+            background: #10b981;
+            border-radius: 50%;
+            padding: 10px;
+        }
 
-    .checkmark {
-      width: 28px;
-      height: 28px;
-    }
+        .checkmark {
+            width: 28px;
+            height: 28px;
+        }
 
-    .check {
-      fill: none;
-      stroke: white;
-      stroke-width: 5;
-      stroke-dasharray: 100;
-      stroke-dashoffset: 100;
-      animation: drawCheck 1s forwards;
-    }
+        .check {
+            fill: none;
+            stroke: white;
+            stroke-width: 5;
+            stroke-dasharray: 100;
+            stroke-dashoffset: 100;
+            animation: drawCheck 1s forwards;
+        }
 
-    .nimbus-text {
-      font-size: 16px;
-    }
+        .nimbus-text {
+            font-size: 16px;
+        }
 
-    #nimbus-sparkle-canvas {
-      position: absolute;
-      top: 0; left: 0;
-      width: 100%; height: 100%;
-      pointer-events: none;
-      z-index: 0;
-    }
+        #nimbus-sparkle-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 0;
+        }
 
-    @keyframes drawCheck {
-      to { stroke-dashoffset: 0; }
-    }
+        @keyframes drawCheck {
+            to { stroke-dashoffset: 0; }
+        }
 
-    @keyframes scaleSlideIn {
-      0% { transform: scale(0.8); opacity: 0; bottom: -100px; }
-      100% { transform: scale(1); opacity: 1; bottom: 30px; }
-    }
-  `;
+        @keyframes scaleSlideIn {
+            0%   { transform: scale(0.8); opacity: 0; bottom: -100px; }
+            100% { transform: scale(1);   opacity: 1; bottom: 30px; }
+        }
+    `;
         document.head.appendChild(style);
     }
+    // ===================== Trigger Success Popup Animation =====================
     function triggerNimbusSuccess() {
         const popup = document.getElementById('nimbus-success-popup');
         const canvas = document.getElementById('nimbus-sparkle-canvas');
@@ -100,6 +107,7 @@ define(["require", "exports"], function (require, exports) {
             popup.style.bottom = '-200px';
         }, 9500);
     }
+    // ===================== Sparkle Animation Effect =====================
     function runSparkleEffect(canvas) {
         const ctx = canvas.getContext('2d');
         if (!ctx)
@@ -126,11 +134,13 @@ define(["require", "exports"], function (require, exports) {
                 spark.y += spark.speedY;
                 spark.opacity -= 0.03;
             });
-            if (sparks.some(s => s.opacity > 0))
+            if (sparks.some(s => s.opacity > 0)) {
                 requestAnimationFrame(animate);
+            }
         }
         animate();
     }
+    // ===================== HSL to RGB Helper =====================
     function hexToRgb(hsl) {
         const m = /^hsl\((\d+),\s*100%,\s*(\d+)%\)$/.exec(hsl);
         if (m) {
@@ -146,12 +156,21 @@ define(["require", "exports"], function (require, exports) {
         }
         return '255,255,255';
     }
-    // Entry hooks
+    // ===================== Entry Points =====================
+    /**
+     * Page Init Hook
+     * @param _ctx - ClientScriptContext
+     */
     function pageInit(_ctx) {
         injectNimbusPopup();
         injectNimbusCSS();
     }
     exports.pageInit = pageInit;
+    /**
+     * Save Record Hook
+     * @param _ctx - ClientScriptContext
+     * @returns boolean
+     */
     function saveRecord(_ctx) {
         triggerNimbusSuccess();
         return true;
