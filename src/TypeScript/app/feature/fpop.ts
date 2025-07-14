@@ -37,7 +37,7 @@ export const fieldChanged: ClientScript['fieldChanged'] = (context) => {
     }
 };
 
-
+/*
 //open popup after load operation
 export const pageInit: ClientScript['pageInit'] = (context) => {
     const recordIdOfBSO = currentRecord.get();

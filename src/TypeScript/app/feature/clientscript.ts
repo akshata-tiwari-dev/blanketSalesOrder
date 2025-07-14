@@ -24,35 +24,150 @@ declare global {
 
 window.isGenerated = false;
 
+function injectProgressBar() {
+    if (document.getElementById('progress-modal')) return; // Prevent duplicates
+
+    const modal = document.createElement('div');
+    modal.id = 'progress-modal';
+    modal.style.cssText = `
+        position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+        background: rgba(0,0,0,0.4); display: flex; justify-content: center; align-items: center;
+        z-index: 9999;
+    `;
+
+    modal.innerHTML = `
+        <div style="background: white; padding: 20px 30px; border-radius: 10px; text-align: center; width: 300px;">
+            <h3 style="margin-bottom: 15px;">Generating Schedule...</h3>
+            <div style="background: #eee; height: 20px; border-radius: 10px; overflow: hidden;">
+                <div id="progress-bar" style="width: 0%; height: 100%; background: #4caf50;"></div>
+            </div>
+            <p id="progress-label" style="margin-top: 10px;">0%</p>
+        </div>
+    `;
+
+    document.body.appendChild(modal);
+}
+
+function updateProgressBar(percent: number) {
+    const bar = document.getElementById('progress-bar') as HTMLElement;
+    const label = document.getElementById('progress-label') as HTMLElement;
+
+    if (bar && label) {
+        bar.style.width = `${percent}%`;
+        label.textContent = `${percent.toFixed(0)}%`;
+    }
+}
+
+function removeProgressBar() {
+    const modal = document.getElementById('progress-modal');
+    if (modal) modal.remove();
+}
+
+
+export function exportScheduleToCSV() {
+    const rec = currentRecord.get();
+    const sublistId = 'custpage_schedule_sublist';
+
+    const itemId = rec.getValue({ fieldId: 'custpage_item_id' }) || '';
+    const customer = rec.getValue({ fieldId: 'custpage_customer' }) || '';
+    const project = rec.getValue({ fieldId: 'custpage_project' }) || '';
+    const location = rec.getValue({ fieldId: 'custpage_location' }) || '';
+    const startDate = rec.getValue({ fieldId: 'custpage_start_date' }) || '';
+    const endDate = rec.getValue({ fieldId: 'custpage_end_date' }) || '';
+    const quantity = rec.getValue({ fieldId: 'custpage_quantity' }) || '';
+    const bsoId = rec.getValue({ fieldId: 'custpage_bso_id' }) || '';
+
+
+    let csv = '';
+    csv += `BSO ID,${bsoId}\n`;
+    csv += `Customer,${customer}\n`;
+    csv += `Project,${project}\n`;
+    csv += `Location,${location}\n`;
+    csv += `Item ID,${itemId}\n`;
+    csv += `Start Date,${startDate}\n`;
+    csv += `End Date,${endDate}\n`;
+    csv += `Quantity,${quantity}\n`;
+    csv += '\n';
+
+    csv += 'Release Date,Quantity,Sales Order URL\n';
+
+    const lineCount = rec.getLineCount({ sublistId });
+    for (let i = 0; i < lineCount; i++) {
+        const date = rec.getSublistValue({
+            sublistId,
+            fieldId: 'custpage_release_date',
+            line: i
+        }) || '';
+
+        const qty = rec.getSublistValue({
+            sublistId,
+            fieldId: 'custpage_release_qty',
+            line: i
+        }) || '';
+
+        const link = rec.getSublistValue({
+            sublistId,
+            fieldId: 'custpage_sales_order_link',
+            line: i
+        }) || '';
+
+        csv += `"${date}","${qty}","${link}"\n`;
+    }
+
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'schedule_export.csv';
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
+
+
+
 
 export const fieldChanged: ClientScript['fieldChanged'] = (context) => {
-    const { sublistId, fieldId, line } = context;
+    const { sublistId, fieldId } = context;
 
-    if (sublistId === 'custpage_schedule_sublist' && fieldId === 'custpage_so_open_checkbox') {
-        const rec = currentRecord.get();
-        const isChecked = rec.getCurrentSublistValue({
-            sublistId,
-            fieldId: 'custpage_so_open_checkbox'
-        }) as boolean;
-
-        const soUrl = rec.getCurrentSublistValue({
-            sublistId,
-            fieldId: 'custpage_sales_order_link'
-        }) as string;
-
-        if (isChecked && soUrl && soUrl.startsWith('http')) {
-            nlExtOpenWindow(soUrl, 'View SO', 800, 800);
-
-            rec.setCurrentSublistValue({
-                sublistId,
-                fieldId: 'custpage_so_open_checkbox',
-                value: false
-            });
-
-            rec.commitLine({ sublistId });
-        }
+    if (sublistId !== 'custpage_schedule_sublist' || fieldId !== 'custpage_so_open_checkbox') {
+        return;
     }
+
+    const rec = currentRecord.get();
+
+    const isChecked = rec.getCurrentSublistValue({
+        sublistId,
+        fieldId: 'custpage_so_open_checkbox'
+    }) as boolean;
+
+    const soUrl = rec.getCurrentSublistValue({
+        sublistId,
+        fieldId: 'custpage_sales_order_link'
+    }) as string;
+
+    if (!isChecked || !soUrl || !soUrl.startsWith('http')) {
+        return;
+    }
+
+    // Open in a new tab or window (standard browser behavior)
+    window.open(soUrl, '_blank');
+
+    // Uncheck the checkbox after opening
+    rec.setCurrentSublistValue({
+        sublistId,
+        fieldId: 'custpage_so_open_checkbox',
+        value: false
+    });
+
+    rec.commitLine({ sublistId });
 };
+
 
 
 export function pageInit(context: any) {
@@ -98,7 +213,7 @@ export function pageInit(context: any) {
 
 
 
-export function autoGenerateSchedule() {
+/*export function autoGenerateSchedule() {
     if (window.isGenerated) {
         alert('Schedule has already been auto-generated.');
         return;
@@ -199,7 +314,139 @@ export function autoGenerateSchedule() {
         message: `Autogenerated Schedule: ${chunks}\nManually generated: ${manual}`
     });
     window.isGenerated = true;
+}*/
+export async function autoGenerateSchedule() {
+    if (window.isGenerated) {
+        alert('Schedule has already been auto-generated.');
+        return;
+    }
+
+    const rec = currentRecord.get();
+    const sublistId = 'custpage_schedule_sublist';
+
+    const sd = rec.getValue({ fieldId: 'custpage_start_date' }) as string;
+    const ed = rec.getValue({ fieldId: 'custpage_end_date' }) as string;
+    const qty = parseInt(rec.getValue({ fieldId: 'custpage_quantity' }) as string, 10);
+    const freq = rec.getValue({ fieldId: 'custpage_release_freq' }) as string;
+
+    if (!sd || !ed || isNaN(qty) || !freq) {
+        alert('Please fill all required fields.');
+        return;
+    }
+
+    const freqDays: Record<string, number> = { e: 1, b: 7, c: 15, a: 30, d: 90, y: 365 };
+    const interval = freqDays[freq] || 1;
+    const msPerDay = 86400000;
+
+    const end = new Date(ed);
+    let latestDate: Date | null = null;
+    let existingTotal = 0;
+
+    const lineCount = rec.getLineCount({ sublistId });
+    for (let i = 0; i < lineCount; i++) {
+        const lineQty = parseInt(rec.getSublistValue({
+            sublistId,
+            fieldId: 'custpage_release_qty',
+            line: i
+        }) as string, 10) || 0;
+
+        const lineDateStr = rec.getSublistValue({
+            sublistId,
+            fieldId: 'custpage_release_date',
+            line: i
+        }) as string;
+
+        const lineDate = new Date(lineDateStr);
+        if (!isNaN(lineDate.getTime()) && (!latestDate || lineDate > latestDate)) {
+            latestDate = lineDate;
+        }
+
+        existingTotal += lineQty;
+    }
+
+    if (existingTotal >= qty) {
+        alert(`Total quantity in sublist (${existingTotal}) is equal to or exceeds total quantity (${qty}). Auto-generation not needed.`);
+        return;
+    }
+
+    const remainingQty = qty - existingTotal;
+    let start = latestDate ? new Date(latestDate.getTime() + interval * msPerDay) : new Date(sd);
+    const totalDays = Math.floor((end.getTime() - start.getTime()) / msPerDay) + 1;
+
+    const chunks = Math.ceil(totalDays / interval);
+    if (chunks === 0 || chunks > 1000) {
+        dialog.alert({
+            title: chunks === 0 ? 'Invalid Date Range' : 'Data Limit Exceeded',
+            message: chunks === 0
+                ? 'Date range too short for selected frequency.'
+                : 'Schedule data is too large. Please reduce the date range.'
+        });
+        return;
+    }
+
+    const baseQty = Math.floor(remainingQty / chunks);
+    const remainder = remainingQty % chunks;
+
+    // Inject and show progress bar
+    injectProgressBar();
+
+    for (let i = 0; i < chunks; i++) {
+        const releaseQty = i < remainder ? baseQty + 1 : baseQty;
+
+        rec.selectNewLine({ sublistId });
+        rec.setCurrentSublistValue({
+            sublistId,
+            fieldId: 'custpage_release_date',
+            value: new Date(start)
+        });
+        rec.setCurrentSublistValue({
+            sublistId,
+            fieldId: 'custpage_release_qty',
+            value: releaseQty
+        });
+        rec.commitLine({ sublistId });
+
+        if (freq === 'a') {
+            start = addMonths(start, 1);
+        } else if (freq === 'd') {
+            start = addMonths(start, 3);
+        } else {
+            start = new Date(start.getTime() + interval * msPerDay);
+       }
+
+
+        // Smooth UI refresh using await
+        if (i % 10 === 0) {
+            const percent = ((i + 1) / chunks) * 100;
+            updateProgressBar(percent);
+            await new Promise(resolve => setTimeout(resolve, 1)); // brief pause to update UI
+        }
+    }
+
+    removeProgressBar();
+
+    const totalLines = rec.getLineCount({ sublistId });
+    const manual = totalLines - chunks;
+
+    dialog.alert({
+        title: 'Automatic Schedule Creation',
+        message: `Schedule Generated Successfully`
+    });
+
+    window.isGenerated = true;
 }
+
+
+
+
+
+
+
+
+
+
+
+
 export function saveScheduleToCache() {
     try {
         const rec = currentRecord.get();
@@ -297,6 +544,17 @@ function formatLocalDate(input: any): string {
     const day = d.getDate();
     const y = d.getFullYear();
     return `${m}/${day}/${y}`;
+}
+function addMonths(date: Date, months: number): Date {
+    const d = new Date(date);
+    const day = d.getDate();
+    d.setMonth(d.getMonth() + months);
+
+    if (d.getDate() < day) {
+        d.setDate(0);
+    }
+
+    return d;
 }
 
 

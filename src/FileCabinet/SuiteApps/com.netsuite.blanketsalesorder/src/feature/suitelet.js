@@ -36,6 +36,7 @@ define(["require", "exports", "N/ui/serverWidget", "N/record", "N/log", "N/cache
     search = __importStar(search);
     url = __importStar(url);
     runtime = __importStar(runtime);
+    let customerId = '', projectName = '', locationName = '';
     function onRequest(context) {
         const { request, response } = context;
         if (request.method === 'GET') {
@@ -55,6 +56,17 @@ define(["require", "exports", "N/ui/serverWidget", "N/record", "N/log", "N/cache
                 if (bsoStatus == 1 || bsoStatus == 3) {
                     isReadOnly = true;
                 }
+                const bsoRec = record.load({
+                    type: 'customrecord_bso',
+                    id: bsoId,
+                    isDynamic: false
+                });
+                const rawCustomer = bsoRec.getText({ fieldId: 'custrecord_customer' });
+                customerId = Array.isArray(rawCustomer) ? rawCustomer.join(', ') : (rawCustomer || '');
+                const rawProject = bsoRec.getText({ fieldId: 'custrecord_project' });
+                projectName = Array.isArray(rawProject) ? rawProject.join(', ') : (rawProject || '');
+                const rawLocation = bsoRec.getText({ fieldId: 'custrecord_loc' });
+                locationName = Array.isArray(rawLocation) ? rawLocation.join(', ') : (rawLocation || '');
                 const sublistItemLineSearch = search.create({
                     type: 'customrecord_item',
                     filters: [['custrecord_itemid', 'anyof', itemId], 'AND', ['custrecord_bso_item_sublist_link', 'anyof', bsoId]],
@@ -128,6 +140,21 @@ define(["require", "exports", "N/ui/serverWidget", "N/record", "N/log", "N/cache
             }).updateDisplayType({
                 displayType: isReadOnly ? serverWidget_1.default.FieldDisplayType.DISABLED : serverWidget_1.default.FieldDisplayType.NORMAL
             }).defaultValue = cachedQuantity;
+            form.addField({
+                id: 'custpage_customer',
+                label: 'Customer',
+                type: serverWidget_1.default.FieldType.TEXT
+            }).updateDisplayType({ displayType: serverWidget_1.default.FieldDisplayType.HIDDEN }).defaultValue = customerId;
+            form.addField({
+                id: 'custpage_project',
+                label: 'Project',
+                type: serverWidget_1.default.FieldType.TEXT
+            }).updateDisplayType({ displayType: serverWidget_1.default.FieldDisplayType.HIDDEN }).defaultValue = projectName;
+            form.addField({
+                id: 'custpage_location',
+                label: 'Location',
+                type: serverWidget_1.default.FieldType.TEXT
+            }).updateDisplayType({ displayType: serverWidget_1.default.FieldDisplayType.HIDDEN }).defaultValue = locationName;
             const freqField = form.addField({
                 id: 'custpage_release_freq',
                 label: 'Release Frequency',
@@ -229,6 +256,11 @@ define(["require", "exports", "N/ui/serverWidget", "N/record", "N/log", "N/cache
                     functionName: 'saveScheduleToCache'
                 });
             }
+            form.addButton({
+                id: 'custpage_export_csv',
+                label: 'Export CSV',
+                functionName: 'exportScheduleToCSV'
+            });
             response.writePage(form);
         }
         if (request.method === 'POST') {

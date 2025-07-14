@@ -18,6 +18,8 @@ interface ScheduleEntry {
     qty: number;
     salesOrderId?: string;
 }
+let customerId = '', projectName = '', locationName = '';
+
 export function onRequest(context: EntryPoints.Suitelet.onRequestContext) {
     const {request, response} = context;
 
@@ -41,6 +43,19 @@ export function onRequest(context: EntryPoints.Suitelet.onRequestContext) {
             if (bsoStatus == 1 || bsoStatus == 3) {
                 isReadOnly = true;
             }
+            const bsoRec = record.load({
+                type: 'customrecord_bso',
+                id: bsoId,
+                isDynamic: false
+            });
+            const rawCustomer = bsoRec.getText({ fieldId: 'custrecord_customer' });
+            customerId = Array.isArray(rawCustomer) ? rawCustomer.join(', ') : (rawCustomer || '');
+            const rawProject = bsoRec.getText({ fieldId: 'custrecord_project' });
+            projectName = Array.isArray(rawProject) ? rawProject.join(', ') : (rawProject || '');
+
+            const rawLocation = bsoRec.getText({ fieldId: 'custrecord_loc' });
+            locationName = Array.isArray(rawLocation) ? rawLocation.join(', ') : (rawLocation || '');
+
             const sublistItemLineSearch = search.create({
                 type: 'customrecord_item',
                 filters: [['custrecord_itemid', 'anyof', itemId], 'AND', ['custrecord_bso_item_sublist_link', 'anyof', bsoId]],
@@ -118,6 +133,24 @@ export function onRequest(context: EntryPoints.Suitelet.onRequestContext) {
         }).updateDisplayType({
             displayType: isReadOnly ? serverWidget.FieldDisplayType.DISABLED : serverWidget.FieldDisplayType.NORMAL
         }).defaultValue = cachedQuantity;
+        form.addField({
+            id: 'custpage_customer',
+            label: 'Customer',
+            type: serverWidget.FieldType.TEXT
+        }).updateDisplayType({ displayType: serverWidget.FieldDisplayType.HIDDEN }).defaultValue = customerId;
+
+        form.addField({
+            id: 'custpage_project',
+            label: 'Project',
+            type: serverWidget.FieldType.TEXT
+        }).updateDisplayType({ displayType: serverWidget.FieldDisplayType.HIDDEN }).defaultValue = projectName;
+
+        form.addField({
+            id: 'custpage_location',
+            label: 'Location',
+            type: serverWidget.FieldType.TEXT
+        }).updateDisplayType({ displayType: serverWidget.FieldDisplayType.HIDDEN }).defaultValue = locationName;
+
 
         const freqField = form.addField({
             id: 'custpage_release_freq',
@@ -215,6 +248,7 @@ export function onRequest(context: EntryPoints.Suitelet.onRequestContext) {
             type: serverWidget.FieldType.TEXT
         }).updateDisplayType({displayType: serverWidget.FieldDisplayType.HIDDEN}).defaultValue = scheduleCode;
 
+
         if (!isReadOnly) {
             form.addButton({
                 id: 'custpage_auto_generate',
@@ -226,7 +260,13 @@ export function onRequest(context: EntryPoints.Suitelet.onRequestContext) {
                 label: 'Save Schedule',
                 functionName: 'saveScheduleToCache'
             });
+
         }
+        form.addButton({
+            id: 'custpage_export_csv',
+            label: 'Export CSV',
+            functionName: 'exportScheduleToCSV'
+        });
 
 
         response.writePage(form);

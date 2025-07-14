@@ -32,7 +32,8 @@ export const getInputData: EntryPoints.MapReduce.getInputData = () => {
                    items.custrecord_rate   AS rate,
                    bso.custrecord_loc      AS location,
                    bso.id                  AS bso_id,
-                   bso.custrecord_customer AS customer_id
+                   bso.custrecord_customer AS customer_id,
+                bso.custrecord_memo     AS bso_memo
             FROM customrecord_schedule sch
                      JOIN customrecord_item items ON sch.custrecord_schsublink = items.id
                      JOIN customrecord_bso bso ON items.custrecord_bso_item_sublist_link = bso.id
@@ -98,6 +99,8 @@ export const reduce: EntryPoints.MapReduce.reduce = (context) => {
         salesOrder.setValue({fieldId: 'entity', value: parseInt(customerId)});
         salesOrder.setValue({fieldId: 'trandate', value: new Date(items[0].release_date)});
         salesOrder.setValue({fieldId: 'custbodyiscreated', value: true});
+        salesOrder.setValue({ fieldId: 'memo', value: items[0].bso_memo || 'Auto-generated SO' });
+
         // salesOrder.setValue({fieldId: 'tobeemailed', value: true});
 
         try {
